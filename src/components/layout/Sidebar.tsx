@@ -243,7 +243,7 @@ const Sidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden sidebar-scroll">
         {filteredCategories.map((category) => {
           const isExpanded = expandedCategories.includes(category.name)
           const CategoryIcon = category.icon
