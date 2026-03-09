@@ -66,9 +66,9 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     const calculateFitScale = async () => {
       // Wait for container to be rendered
       await new Promise(resolve => setTimeout(resolve, 100))
-      
+
       const page = await pdfDoc.getPage(1)
-      const viewport = page.getViewport({ scale: 1 })
+      const viewport = page.getViewport({ scale: 1, rotation: page.rotate })
       const containerWidth = viewerRef.current!.clientWidth - 48 // Account for padding
       const newScale = containerWidth / viewport.width
       setScale(Math.min(Math.max(newScale, 0.5), 2.5)) // Min 50%, max 250%
@@ -88,13 +88,14 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     const renderAllPages = async () => {
       const heights: number[] = []
       const dimensions: { width: number; height: number }[] = []
-      
+
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         const canvas = canvasRefs.current[pageNum - 1]
         if (!canvas) continue
-        
+
         const page = await pdfDoc.getPage(pageNum)
-        const viewport = page.getViewport({ scale })
+        // Respect the PDF page's native rotation
+        const viewport = page.getViewport({ scale, rotation: page.rotate })
         const context = canvas.getContext('2d')!
 
         canvas.height = viewport.height

@@ -91,7 +91,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum)
       const annotations = await page.getAnnotations()
-      const viewport = page.getViewport({ scale })
+      const viewport = page.getViewport({ scale, rotation: page.rotate })
       
       // First try to detect AcroForm fields
       for (const annotation of annotations) {
@@ -204,7 +204,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
 
     const renderPage = async () => {
       const page = await pdfDoc.getPage(currentPage)
-      const viewport = page.getViewport({ scale })
+      const viewport = page.getViewport({ scale, rotation: page.rotate })
       const canvas = canvasRef.current!
       const context = canvas.getContext('2d')!
 
@@ -219,7 +219,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
         const allPageDims: Record<number, { width: number; height: number }> = {}
         for (let p = 1; p <= pdfDoc.numPages; p++) {
           const pg = await pdfDoc.getPage(p)
-          const vp = pg.getViewport({ scale })
+          const vp = pg.getViewport({ scale, rotation: pg.rotate })
           allPageDims[p] = { width: vp.width, height: vp.height }
         }
         setPageDimensions(allPageDims)

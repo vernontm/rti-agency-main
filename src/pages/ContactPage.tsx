@@ -60,7 +60,7 @@ const ContactPage = () => {
             Thank you for contacting us. We'll get back to you as soon as possible.
           </p>
           <Link
-            to="/home"
+            to="/"
             className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -76,15 +76,15 @@ const ContactPage = () => {
       {/* Header */}
       <header className="bg-black/20 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/home" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <img
-              src="https://www.roadtoindependence.org/wp-content/uploads/2023/07/rti-logo.png"
+              src="https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/logos/RTI-logo.png"
               alt="RTI Logo"
               className="h-12"
             />
           </Link>
           <Link
-            to="/home"
+            to="/"
             className="text-white hover:text-orange-400 transition-colors flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />

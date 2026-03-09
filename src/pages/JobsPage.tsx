@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { Upload, CheckCircle, Briefcase, ArrowLeft } from 'lucide-react'
@@ -6,18 +6,18 @@ import toast from 'react-hot-toast'
 
 const RTI_LOGO = 'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/logos/RTI-logo.png'
 
-const POSITIONS = [
-  'Direct Support Professional',
-  'Independent Living Skills Trainer',
-  'Supported Living Specialist',
-  'Respite Care Provider',
-  'Coordinated Family Support (CFS) Staff',
-  'Program Coordinator',
-  'Case Manager',
-  'Other'
-]
+interface JobPosition {
+  id: string
+  title: string
+  description: string
+  department: string | null
+  location: string | null
+  employment_type: string | null
+}
 
 const JobsPage = () => {
+  const [positions, setPositions] = useState<JobPosition[]>([])
+  const [loadingPositions, setLoadingPositions] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [resumeFile, setResumeFile] = useState<File | null>(null)
@@ -35,6 +35,27 @@ const JobsPage = () => {
     start_date: '',
     cover_letter: ''
   })
+
+  useEffect(() => {
+    fetchPositions()
+  }, [])
+
+  const fetchPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('job_positions')
+        .select('id, title, description, department, location, employment_type')
+        .eq('is_visible', true)
+        .order('sort_order', { ascending: true })
+
+      if (error) throw error
+      setPositions(data || [])
+    } catch (error) {
+      console.error('Error fetching positions:', error)
+    } finally {
+      setLoadingPositions(false)
+    }
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -128,7 +149,7 @@ const JobsPage = () => {
             Thank you for your interest in joining Road to Independence. We will review your application and contact you soon.
           </p>
           <Link
-            to="/home"
+            to="/"
             className="inline-block px-8 py-3 bg-gradient-to-br from-[#fe9226] to-[#e67e1a] text-white rounded-full font-medium hover:-translate-y-0.5 transition-all"
           >
             Return to Home
@@ -143,10 +164,10 @@ const JobsPage = () => {
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/home" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3">
             <img src={RTI_LOGO} alt="RTI Logo" className="h-12" />
           </Link>
-          <Link to="/home" className="flex items-center gap-2 text-gray-600 hover:text-[#fe9226] transition-colors">
+          <Link to="/" className="flex items-center gap-2 text-gray-600 hover:text-[#fe9226] transition-colors">
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
@@ -170,14 +191,37 @@ const JobsPage = () => {
       <section className="py-12 bg-gray-100">
         <div className="max-w-4xl mx-auto px-4">
           <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Open Positions</h2>
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl p-6 shadow-md">
-              <h3 className="text-xl font-bold text-[#003d5c] mb-3">Coordinated Family Support (CFS) Staff</h3>
-              <p className="text-gray-700 leading-relaxed">
-                Coordinated Family Support Staff works with the individual and their family to organize, coordinate, and manage services and supports in order to promote stability, consistency, and successful use of Regional Center and community resources. Because managing services and supports can be complex and ongoing, Coordinated Family Support services are offered as long and as often as needed, with the flexibility required to meet a family's changing needs over time, focusing on guidance, planning, and coordination rather than direct care.
-              </p>
+          {loadingPositions ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fe9226]"></div>
             </div>
-          </div>
+          ) : positions.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">No open positions at this time. Check back soon!</p>
+          ) : (
+            <div className="space-y-6">
+              {positions.map((position) => (
+                <div key={position.id} className="bg-white rounded-xl p-6 shadow-md">
+                  <h3 className="text-xl font-bold text-[#003d5c] mb-3">{position.title}</h3>
+                  {(position.department || position.location || position.employment_type) && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {position.department && (
+                        <span className="bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full">{position.department}</span>
+                      )}
+                      {position.location && (
+                        <span className="bg-green-100 text-green-800 text-xs px-2.5 py-1 rounded-full">{position.location}</span>
+                      )}
+                      {position.employment_type && (
+                        <span className="bg-purple-100 text-purple-800 text-xs px-2.5 py-1 rounded-full">{position.employment_type}</span>
+                      )}
+                    </div>
+                  )}
+                  {position.description && (
+                    <p className="text-gray-700 leading-relaxed">{position.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -300,9 +344,10 @@ const JobsPage = () => {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fe9226] focus:border-[#fe9226] outline-none transition-all"
                     >
                       <option value="">Select a position</option>
-                      {POSITIONS.map(pos => (
-                        <option key={pos} value={pos}>{pos}</option>
+                      {positions.map(pos => (
+                        <option key={pos.id} value={pos.title}>{pos.title}</option>
                       ))}
+                      <option value="Other">Other</option>
                     </select>
                   </div>
                   <div>

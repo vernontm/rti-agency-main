@@ -21,6 +21,7 @@ import VideoManagementPage from './pages/admin/VideoManagementPage'
 import VideoSettingsPage from './pages/admin/VideoSettingsPage'
 import PendingUsersPage from './pages/admin/PendingUsersPage'
 import JobApplicationsPage from './pages/admin/JobApplicationsPage'
+import JobPositionsManagementPage from './pages/admin/JobPositionsManagementPage'
 import InboxPage from './pages/admin/InboxPage'
 import AdvisoriesManagementPage from './pages/admin/AdvisoriesManagementPage'
 import ArchivesPage from './pages/admin/ArchivesPage'
@@ -31,12 +32,8 @@ import LandingPage from './pages/LandingPage'
 import JobsPage from './pages/JobsPage'
 import ContactPage from './pages/ContactPage'
 
-function App() {
-  const { initialize, initialized } = useAuthStore()
-
-  useEffect(() => {
-    initialize()
-  }, [initialize])
+const ProtectedLayout = () => {
+  const { initialized } = useAuthStore()
 
   if (!initialized) {
     return (
@@ -47,9 +44,24 @@ function App() {
   }
 
   return (
+    <ProtectedRoute>
+      <MainLayout />
+    </ProtectedRoute>
+  )
+}
+
+function App() {
+  const { initialize } = useAuthStore()
+
+  useEffect(() => {
+    initialize()
+  }, [initialize])
+
+  return (
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/home" element={<LandingPage />} />
         <Route path="/jobs" element={<JobsPage />} />
         <Route path="/contact" element={<ContactPage />} />
@@ -59,35 +71,28 @@ function App() {
         <Route path="/reset-password" element={<ResetPasswordPage />} />
 
         {/* Protected routes */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <MainLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="users" element={<UsersPage />} />
-          <Route path="training" element={<TrainingPage />} />
-          <Route path="announcements" element={<AnnouncementsPage />} />
-          <Route path="educator-area" element={<EducatorAreaPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="admin/forms" element={<FormBuilderPage />} />
-          <Route path="admin/videos" element={<VideoManagementPage />} />
-          <Route path="admin/video-settings" element={<VideoSettingsPage />} />
-          <Route path="admin/pending-users" element={<PendingUsersPage />} />
-          <Route path="admin/job-applications" element={<JobApplicationsPage />} />
-          <Route path="admin/inbox" element={<InboxPage />} />
-          <Route path="admin/file-manager" element={<AdvisoriesManagementPage />} />
-          <Route path="admin/archives" element={<ArchivesPage />} />
-          <Route path="documents" element={<AdvisoriesPage />} />
+        <Route element={<ProtectedLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/users" element={<UsersPage />} />
+          <Route path="/training" element={<TrainingPage />} />
+          <Route path="/announcements" element={<AnnouncementsPage />} />
+          <Route path="/educator-area" element={<EducatorAreaPage />} />
+          <Route path="/calendar" element={<CalendarPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/documents" element={<AdvisoriesPage />} />
+          <Route path="/admin/forms" element={<FormBuilderPage />} />
+          <Route path="/admin/videos" element={<VideoManagementPage />} />
+          <Route path="/admin/video-settings" element={<VideoSettingsPage />} />
+          <Route path="/admin/pending-users" element={<PendingUsersPage />} />
+          <Route path="/admin/job-applications" element={<JobApplicationsPage />} />
+          <Route path="/admin/job-positions" element={<JobPositionsManagementPage />} />
+          <Route path="/admin/inbox" element={<InboxPage />} />
+          <Route path="/admin/file-manager" element={<AdvisoriesManagementPage />} />
+          <Route path="/admin/archives" element={<ArchivesPage />} />
         </Route>
 
         {/* Catch all */}
-        <Route path="*" element={<Navigate to="/home" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster position="top-right" toastOptions={{ style: { marginTop: '70px' } }} />
     </BrowserRouter>

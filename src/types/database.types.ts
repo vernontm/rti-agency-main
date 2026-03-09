@@ -3,6 +3,7 @@ export type UserStatus = 'pending' | 'approved' | 'rejected'
 export type FormStatus = 'pending' | 'approved' | 'rejected'
 export type AnnouncementAudience = 'all' | 'admins' | 'employees' | 'clients' | 'specific'
 export type InquiryStatus = 'new' | 'in_progress' | 'closed'
+export type NotificationRecipients = 'admin' | 'employee' | 'both' | 'none'
 
 export interface Database {
   public: {
@@ -292,6 +293,47 @@ export interface Database {
           read_at?: string
         }
       }
+      job_positions: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          department: string | null
+          location: string | null
+          employment_type: string | null
+          is_visible: boolean
+          sort_order: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string
+          department?: string | null
+          location?: string | null
+          employment_type?: string | null
+          is_visible?: boolean
+          sort_order?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string
+          department?: string | null
+          location?: string | null
+          employment_type?: string | null
+          is_visible?: boolean
+          sort_order?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
       services: {
         Row: {
           id: string
@@ -316,6 +358,32 @@ export interface Database {
           inquiry_form_schema?: Record<string, unknown>
           active?: boolean
           created_at?: string
+        }
+      }
+      notification_settings: {
+        Row: {
+          id: string
+          notification_type: string
+          recipients: NotificationRecipients
+          enabled: boolean
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          notification_type: string
+          recipients?: NotificationRecipients
+          enabled?: boolean
+          updated_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          notification_type?: string
+          recipients?: NotificationRecipients
+          enabled?: boolean
+          updated_by?: string | null
+          updated_at?: string
         }
       }
       service_inquiries: {
@@ -361,6 +429,7 @@ export interface Database {
       form_status: FormStatus
       announcement_audience: AnnouncementAudience
       inquiry_status: InquiryStatus
+      notification_recipients: NotificationRecipients
     }
   }
 }

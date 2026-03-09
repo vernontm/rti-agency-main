@@ -17,8 +17,11 @@ import {
   Sliders,
   GraduationCap,
   Inbox,
-  AlertTriangle,
+  Briefcase,
   Calendar,
+  FolderOpen,
+  Archive,
+  ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -37,6 +40,7 @@ interface NavItem {
   to: string
   icon: LucideIcon
   label: string
+  tooltip: string
   roles: string[]
 }
 
@@ -47,12 +51,23 @@ interface NavCategory {
   items: NavItem[]
 }
 
+const Tooltip = ({ text, collapsed }: { text: string; collapsed: boolean }) => (
+  <div
+    className={`absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-md shadow-lg whitespace-nowrap opacity-0 pointer-events-none group-hover/item:opacity-100 transition-opacity duration-150 z-50 border border-gray-700 ${
+      !collapsed ? 'hidden group-hover/item:block' : ''
+    }`}
+  >
+    {text}
+    <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-800" />
+  </div>
+)
+
 const Sidebar = () => {
   const { profile, signOut, viewAsRole, setViewAsRole, getEffectiveRole } = useAuthStore()
   const effectiveRole = getEffectiveRole()
   const isActualAdmin = profile?.role === 'admin'
   const [collapsed, setCollapsed] = useState(false)
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(['Main', 'Educator Area', 'Management', 'Settings'])
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(['Main', 'Educator Area', 'Management', 'Content Tools', 'Settings'])
   const [counts, setCounts] = useState<NotificationCounts>({
     pendingUsers: 0,
     pendingForms: 0,
@@ -66,7 +81,6 @@ const Sidebar = () => {
   useEffect(() => {
     if (profile?.role === 'admin') {
       fetchCounts()
-      // Refresh counts every 30 seconds
       const interval = setInterval(fetchCounts, 30000)
       return () => clearInterval(interval)
     }
@@ -74,47 +88,38 @@ const Sidebar = () => {
 
   const fetchCounts = async () => {
     try {
-      // Fetch pending users count
       const { count: pendingUsers, error: usersError } = await supabase
         .from('users')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
 
-      // Fetch pending form submissions count
       const { count: pendingForms, error: formsError } = await supabase
         .from('form_submissions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
 
-      // Count pending job applications
       const { count: pendingJobApps, error: jobsError } = await supabase
         .from('job_applications')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'pending')
 
-      // Count new contact submissions
       const { count: newContacts, error: contactsError } = await supabase
         .from('contact_submissions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'new')
 
-      // Count new advisories (for employees - visible ones they haven't seen)
       const { count: newAdvisories, error: advisoriesError } = await supabase
         .from('advisories')
         .select('*', { count: 'exact', head: true })
         .eq('is_visible', true)
 
-      // Log any errors
       if (usersError) console.error('Users count error:', usersError)
       if (formsError) console.error('Forms count error:', formsError)
       if (jobsError) console.error('Jobs count error:', jobsError)
       if (contactsError) console.error('Contacts count error:', contactsError)
       if (advisoriesError) console.error('Advisories count error:', advisoriesError)
 
-      // Total inbox items = pending users + pending forms + pending job apps + new contacts
       const inboxItems = (pendingUsers || 0) + (pendingForms || 0) + (pendingJobApps || 0) + (newContacts || 0)
-      
-      console.log('Sidebar counts:', { pendingUsers, pendingForms, pendingJobApps, newContacts, inboxItems })
 
       setCounts({
         pendingUsers: pendingUsers || 0,
@@ -149,8 +154,8 @@ const Sidebar = () => {
   }
 
   const toggleCategory = (categoryName: string) => {
-    setExpandedCategories(prev => 
-      prev.includes(categoryName) 
+    setExpandedCategories(prev =>
+      prev.includes(categoryName)
         ? prev.filter(c => c !== categoryName)
         : [...prev, categoryName]
     )
@@ -162,19 +167,19 @@ const Sidebar = () => {
       icon: LayoutDashboard,
       roles: ['admin', 'employee', 'client'],
       items: [
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', roles: ['admin', 'employee', 'client'] },
-        { to: '/announcements', icon: Bell, label: 'Announcements', roles: ['admin', 'employee', 'client'] },
-              ]
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', tooltip: 'Overview & quick stats', roles: ['admin', 'employee', 'client'] },
+        { to: '/announcements', icon: Bell, label: 'Announcements', tooltip: 'Company announcements', roles: ['admin', 'employee', 'client'] },
+      ]
     },
     {
       name: 'Educator Area',
       icon: GraduationCap,
       roles: ['admin', 'employee', 'client'],
       items: [
-        { to: '/training', icon: Video, label: 'Training', roles: ['admin', 'employee', 'client'] },
-        { to: '/educator-area', icon: FileText, label: 'Forms', roles: ['admin', 'employee'] },
-        { to: '/documents', icon: FileText, label: 'Documents', roles: ['admin', 'employee'] },
-        { to: '/calendar', icon: Calendar, label: 'Calendar', roles: ['admin', 'employee'] },
+        { to: '/training', icon: Video, label: 'Training', tooltip: 'Training videos & courses', roles: ['admin', 'employee', 'client'] },
+        { to: '/educator-area', icon: ClipboardList, label: 'Forms', tooltip: 'Submit & view forms', roles: ['admin', 'employee'] },
+        { to: '/documents', icon: FolderOpen, label: 'Documents', tooltip: 'Advisories & downloads', roles: ['admin', 'employee'] },
+        { to: '/calendar', icon: Calendar, label: 'Calendar', tooltip: 'Schedule & events', roles: ['admin', 'employee'] },
       ]
     },
     {
@@ -182,10 +187,21 @@ const Sidebar = () => {
       icon: Users,
       roles: ['admin'],
       items: [
-        { to: '/admin/inbox', icon: Inbox, label: 'Inbox', roles: ['admin'] },
-        { to: '/users', icon: Users, label: 'Users', roles: ['admin'] },
-        { to: '/admin/file-manager', icon: FileText, label: 'File Manager', roles: ['admin'] },
-        { to: '/admin/archives', icon: FileText, label: 'Archives', roles: ['admin'] },
+        { to: '/admin/inbox', icon: Inbox, label: 'Inbox', tooltip: 'Pending items & submissions', roles: ['admin'] },
+        { to: '/users', icon: Users, label: 'Users', tooltip: 'Manage user accounts', roles: ['admin'] },
+        { to: '/admin/job-positions', icon: Briefcase, label: 'Job Positions', tooltip: 'Manage job listings', roles: ['admin'] },
+        { to: '/admin/file-manager', icon: FileText, label: 'File Manager', tooltip: 'Upload & manage files', roles: ['admin'] },
+        { to: '/admin/archives', icon: Archive, label: 'Archives', tooltip: 'Archived records', roles: ['admin'] },
+      ]
+    },
+    {
+      name: 'Content Tools',
+      icon: PenTool,
+      roles: ['admin'],
+      items: [
+        { to: '/admin/forms', icon: PenTool, label: 'Form Builder', tooltip: 'Create & edit forms', roles: ['admin'] },
+        { to: '/admin/videos', icon: Film, label: 'Video Manager', tooltip: 'Manage training videos', roles: ['admin'] },
+        { to: '/admin/video-settings', icon: Sliders, label: 'Video Settings', tooltip: 'Video categories & config', roles: ['admin'] },
       ]
     },
     {
@@ -193,10 +209,7 @@ const Sidebar = () => {
       icon: Settings,
       roles: ['admin'],
       items: [
-        { to: '/admin/forms', icon: PenTool, label: 'Form Builder', roles: ['admin'] },
-        { to: '/admin/videos', icon: Film, label: 'Video Manager', roles: ['admin'] },
-        { to: '/admin/video-settings', icon: Sliders, label: 'Video Settings', roles: ['admin'] },
-        { to: '/settings', icon: Settings, label: 'Settings', roles: ['admin'] },
+        { to: '/settings', icon: Settings, label: 'Settings', tooltip: 'App configuration', roles: ['admin'] },
       ]
     },
   ]
@@ -215,6 +228,7 @@ const Sidebar = () => {
         collapsed ? 'w-16' : 'w-64'
       }`}
     >
+      {/* Header */}
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         {!collapsed && (
           <h1 className="text-xl font-bold text-orange-400">RTI Agency</h1>
@@ -222,68 +236,74 @@ const Sidebar = () => {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 hover:bg-gray-800 rounded-lg transition-colors"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {filteredCategories.map((category) => {
           const isExpanded = expandedCategories.includes(category.name)
           const CategoryIcon = category.icon
-          
+
           return (
-            <div key={category.name}>
+            <div key={category.name} className="mb-1">
               {/* Category Header */}
-              {!collapsed && (
+              {!collapsed ? (
                 <button
                   onClick={() => toggleCategory(category.name)}
-                  className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 mt-2 first:mt-0 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors rounded-md"
                 >
                   <span className="flex items-center gap-2">
                     <CategoryIcon size={14} />
                     {category.name}
                   </span>
-                  <ChevronDown 
-                    size={14} 
-                    className={`transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`} 
+                  <ChevronDown
+                    size={14}
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
                   />
                 </button>
+              ) : (
+                <div className="my-2 mx-2 border-t border-gray-800" />
               )}
-              
+
               {/* Category Items */}
-              <div className={`space-y-1 ${!collapsed && !isExpanded ? 'hidden' : ''}`}>
+              <div className={`space-y-0.5 ${!collapsed && !isExpanded ? 'hidden' : ''}`}>
                 {category.items.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-orange-500 text-white'
-                          : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                      } ${!collapsed ? 'ml-2' : ''}`
-                    }
-                  >
-                    <div className="relative">
-                      <item.icon size={20} />
-                      {collapsed && getCountForRoute(item.to) > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
-                          {getCountForRoute(item.to) > 99 ? '99+' : getCountForRoute(item.to)}
-                        </span>
-                      )}
-                    </div>
-                    {!collapsed && (
-                      <span className="flex-1 flex items-center justify-between">
-                        {item.label}
-                        {getCountForRoute(item.to) > 0 && (
-                          <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5">
+                  <div key={item.to} className="relative group/item">
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                          isActive
+                            ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/20'
+                            : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        } ${collapsed ? 'justify-center' : 'ml-1'}`
+                      }
+                    >
+                      <div className="relative flex-shrink-0">
+                        <item.icon size={20} />
+                        {collapsed && getCountForRoute(item.to) > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                             {getCountForRoute(item.to) > 99 ? '99+' : getCountForRoute(item.to)}
                           </span>
                         )}
-                      </span>
-                    )}
-                  </NavLink>
+                      </div>
+                      {!collapsed && (
+                        <span className="flex-1 flex items-center justify-between text-sm">
+                          {item.label}
+                          {getCountForRoute(item.to) > 0 && (
+                            <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5">
+                              {getCountForRoute(item.to) > 99 ? '99+' : getCountForRoute(item.to)}
+                            </span>
+                          )}
+                        </span>
+                      )}
+                    </NavLink>
+                    <Tooltip text={collapsed ? item.label : item.tooltip} collapsed={collapsed} />
+                  </div>
                 ))}
               </div>
             </div>
@@ -291,11 +311,12 @@ const Sidebar = () => {
         })}
       </nav>
 
+      {/* Footer */}
       <div className="p-4 border-t border-gray-800">
         {/* View As Role Switcher - Admin Only */}
         {!collapsed && isActualAdmin && (
           <div className="mb-4">
-            <label className="block text-xs text-gray-400 mb-1">View as</label>
+            <label className="block text-xs text-gray-500 mb-1">View as</label>
             <select
               value={viewAsRole || ''}
               onChange={(e) => setViewAsRole(e.target.value as 'admin' | 'employee' | 'client' | null || null)}
@@ -313,16 +334,19 @@ const Sidebar = () => {
         {!collapsed && profile && (
           <div className="mb-4">
             <p className="text-sm font-medium truncate">{profile.full_name}</p>
-            <p className="text-xs text-gray-400 capitalize">{profile.role}</p>
+            <p className="text-xs text-gray-500 capitalize">{profile.role}</p>
           </div>
         )}
-        <button
-          onClick={signOut}
-          className="flex items-center gap-3 px-3 py-2 w-full text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
-        >
-          <LogOut size={20} />
-          {!collapsed && <span>Sign Out</span>}
-        </button>
+        <div className="relative group/item">
+          <button
+            onClick={signOut}
+            className="flex items-center gap-3 px-3 py-2 w-full text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
+          >
+            <LogOut size={20} />
+            {!collapsed && <span className="text-sm">Sign Out</span>}
+          </button>
+          {collapsed && <Tooltip text="Sign Out" collapsed={collapsed} />}
+        </div>
       </div>
     </aside>
   )

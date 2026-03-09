@@ -1,10 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/authStore'
+import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import { User, Lock, Bell } from 'lucide-react'
+import { User, Lock, Bell, Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import type { NotificationRecipients } from '../types/database.types'
+
+interface NotificationSetting {
+  id: string
+  notification_type: string
+  recipients: NotificationRecipients
+  enabled: boolean
+  updated_by: string | null
+  updated_at: string
+}
+
+const NOTIFICATION_LABELS: Record<string, { label: string; description: string }> = {
+  user_registration: { label: 'New User Registration', description: 'When a new user signs up' },
+  form_submission: { label: 'Form Submissions', description: 'When a form is submitted' },
+  job_application: { label: 'Job Applications', description: 'When a job application is received' },
+  contact_submission: { label: 'Contact Form', description: 'When a contact form is submitted' },
+  announcement: { label: 'Announcements', description: 'When a new announcement is created' },
+  calendar_event: { label: 'Calendar Events', description: 'When a calendar note is added' },
+}
+
+const RECIPIENT_OPTIONS: { value: NotificationRecipients; label: string }[] = [
+  { value: 'admin', label: 'Admins Only' },
+  { value: 'employee', label: 'Employees Only' },
+  { value: 'both', label: 'Admin & Employees' },
+  { value: 'none', label: 'Nobody' },
+]
 
 const SettingsPage = () => {
   const { profile, updatePassword } = useAuthStore()
@@ -15,10 +42,62 @@ const SettingsPage = () => {
     confirmPassword: '',
   })
   const [loading, setLoading] = useState(false)
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSetting[]>([])
+  const [notifLoading, setNotifLoading] = useState(false)
+
+  const isAdmin = profile?.role === 'admin'
+
+  // Fetch notification settings when tab is selected
+  useEffect(() => {
+    if (activeTab === 'notifications' && isAdmin) {
+      fetchNotificationSettings()
+    }
+  }, [activeTab, isAdmin])
+
+  const fetchNotificationSettings = async () => {
+    setNotifLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('notification_settings')
+        .select('*')
+        .order('notification_type')
+      if (error) throw error
+      setNotificationSettings(data || [])
+    } catch (error) {
+      console.error('Error fetching notification settings:', error)
+      toast.error('Failed to load notification settings')
+    } finally {
+      setNotifLoading(false)
+    }
+  }
+
+  const updateNotificationSetting = async (
+    id: string,
+    updates: Partial<Pick<NotificationSetting, 'enabled' | 'recipients'>>
+  ) => {
+    // Optimistic update
+    setNotificationSettings(prev =>
+      prev.map(s => (s.id === id ? { ...s, ...updates } : s))
+    )
+
+    try {
+      const { error } = await supabase
+        .from('notification_settings')
+        .update({ ...updates, updated_by: profile?.id, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+      toast.success('Notification setting updated')
+    } catch (error) {
+      console.error('Error updating notification setting:', error)
+      toast.error('Failed to update setting')
+      // Revert on failure
+      fetchNotificationSettings()
+    }
+  }
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error("Passwords don't match")
       return
@@ -45,7 +124,7 @@ const SettingsPage = () => {
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'security', label: 'Security', icon: Lock },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
+    ...(isAdmin ? [{ id: 'notifications', label: 'Notifications', icon: Bell }] : []),
   ]
 
   return (
@@ -155,43 +234,83 @@ const SettingsPage = () => {
             </Card>
           )}
 
-          {activeTab === 'notifications' && (
+          {activeTab === 'notifications' && isAdmin && (
             <Card>
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Notification Preferences</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Email Notifications</h3>
-                    <p className="text-sm text-gray-600">Receive updates via email</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Email Notification Settings</h2>
+              <p className="text-sm text-gray-500 mb-6">
+                Configure which roles receive email notifications for each event type.
+              </p>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Announcement Alerts</h3>
-                    <p className="text-sm text-gray-600">Get notified of new announcements</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
+              {notifLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 </div>
+              ) : notificationSettings.length === 0 ? (
+                <p className="text-gray-500 text-center py-8">No notification settings found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {notificationSettings.map((setting) => {
+                    const info = NOTIFICATION_LABELS[setting.notification_type] || {
+                      label: setting.notification_type,
+                      description: '',
+                    }
+                    return (
+                      <div
+                        key={setting.id}
+                        className={`flex items-center justify-between p-4 rounded-lg border ${
+                          setting.enabled ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          {/* Enable/Disable toggle */}
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={setting.enabled}
+                              onChange={(e) =>
+                                updateNotificationSetting(setting.id, { enabled: e.target.checked })
+                              }
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                          </label>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <h3 className="font-medium text-gray-900">Training Reminders</h3>
-                    <p className="text-sm text-gray-600">Reminders for incomplete training</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
+                          <div className="min-w-0">
+                            <h3 className={`font-medium ${setting.enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                              {info.label}
+                            </h3>
+                            <p className={`text-sm ${setting.enabled ? 'text-gray-500' : 'text-gray-400'}`}>
+                              {info.description}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Recipients dropdown */}
+                        <select
+                          value={setting.recipients}
+                          onChange={(e) =>
+                            updateNotificationSetting(setting.id, {
+                              recipients: e.target.value as NotificationRecipients,
+                            })
+                          }
+                          disabled={!setting.enabled}
+                          className={`ml-4 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setting.enabled
+                              ? 'border-gray-300 text-gray-700 bg-white'
+                              : 'border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed'
+                          }`}
+                        >
+                          {RECIPIENT_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
+              )}
             </Card>
           )}
         </div>

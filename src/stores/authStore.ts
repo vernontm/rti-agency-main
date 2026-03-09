@@ -34,15 +34,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().initialized) return
     
     // Set up auth state listener FIRST
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
       set({ user: session?.user ?? null, session })
-      if (session?.user) {
+
+      // Fetch profile if we have a session but no profile loaded yet
+      // This handles INITIAL_SESSION, SIGNED_IN, etc. without re-fetching on TOKEN_REFRESHED
+      if (session?.user && !get().profile) {
         try {
           await get().fetchProfile()
         } catch (e: any) {
           if (e?.name !== 'AbortError') console.error('Error fetching profile:', e)
         }
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         set({ profile: null })
       }
     })
@@ -63,14 +66,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  fetchProfile: async (retries = 3) => {
+  fetchProfile: async (retries = 2) => {
     const { user } = get()
-    if (!user) {
-      console.log('fetchProfile: No user found')
-      return
-    }
-
-    console.log('fetchProfile: Fetching for user', user.id)
+    if (!user) return
 
     for (let attempt = 0; attempt < retries; attempt++) {
       try {
@@ -80,36 +78,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .eq('id', user.id)
           .single()
 
-        console.log('fetchProfile attempt', attempt + 1, '- data:', data, 'error:', error)
-
         if (error) {
-          // If it's an abort error or empty code, retry
-          if (error.message?.includes('AbortError') || error.code === '' || error.code === 'PGRST116') {
-            if (attempt < retries - 1) {
-              console.log('fetchProfile: Retrying after error...')
-              await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
-              continue
-            }
+          if ((error.message?.includes('AbortError') || error.code === '' || error.code === 'PGRST116') && attempt < retries - 1) {
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+            continue
           }
-          console.error('Error fetching profile (final):', error)
+          console.error('Error fetching profile:', error)
           return
         }
 
         if (data) {
-          console.log('fetchProfile: Success, setting profile')
           set({ profile: data })
           return
         }
       } catch (e: any) {
-        console.error('fetchProfile exception:', e)
         if (e?.name === 'AbortError' && attempt < retries - 1) {
           await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
           continue
         }
+        console.error('fetchProfile error:', e)
         return
       }
     }
-    console.log('fetchProfile: All retries exhausted')
   },
 
   signIn: async (email: string, password: string) => {

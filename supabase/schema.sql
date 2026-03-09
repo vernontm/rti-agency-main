@@ -201,6 +201,24 @@ CREATE TABLE contact_submissions (
 CREATE INDEX idx_contact_submissions_status ON contact_submissions(status);
 CREATE INDEX idx_contact_submissions_email ON contact_submissions(email);
 
+-- Job Positions (managed by admins, displayed on public /jobs page)
+CREATE TABLE job_positions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    department TEXT,
+    location TEXT,
+    employment_type TEXT,
+    is_visible BOOLEAN NOT NULL DEFAULT false,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_job_positions_is_visible ON job_positions(is_visible);
+CREATE INDEX idx_job_positions_sort_order ON job_positions(sort_order);
+
 -- Advisories (PDFs for educators)
 CREATE TABLE advisories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -231,6 +249,7 @@ CREATE INDEX idx_service_inquiries_status ON service_inquiries(status);
 -- Row Level Security (RLS) Policies
 
 -- Enable RLS on all tables
+ALTER TABLE job_positions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE forms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE form_submissions ENABLE ROW LEVEL SECURITY;
@@ -388,7 +407,26 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+-- Job positions policies
+CREATE POLICY "Anyone can view visible job positions" ON job_positions
+    FOR SELECT USING (is_visible = true);
+
+CREATE POLICY "Admins can view all job positions" ON job_positions
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can manage job positions" ON job_positions
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
 -- Create triggers for updated_at
+CREATE TRIGGER update_job_positions_updated_at
+    BEFORE UPDATE ON job_positions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW
