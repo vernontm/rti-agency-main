@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import Button from '../ui/Button'
-import { Send, RefreshCw } from 'lucide-react'
+import { Send, RefreshCw, ZoomIn, ZoomOut } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // Set worker path
@@ -191,6 +191,9 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
     }
   }
 
+  const handleZoomIn = () => setScale(s => Math.min(s + 0.15, 3))
+  const handleZoomOut = () => setScale(s => Math.max(s - 0.15, 0.4))
+
   const handleRealign = async () => {
     if (!pdfDoc || !viewerRef.current) return
     const viewer = viewerRef.current
@@ -198,8 +201,10 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
     const viewport = page.getViewport({ scale: 1 })
     const containerWidth = viewer.clientWidth - 48
     if (containerWidth <= 0) return
-    const newScale = containerWidth / viewport.width
-    setScale(Math.min(Math.max(newScale, 0.5), 2.5))
+    const fitScale = Math.min(Math.max(containerWidth / viewport.width, 0.5), 2.5)
+    // Nudge scale slightly to force re-render even if value is the same
+    setScale(fitScale + 0.001)
+    requestAnimationFrame(() => setScale(fitScale))
     toast.success('Fields realigned')
   }
 
@@ -231,14 +236,31 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
       {/* Header */}
       <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">{formName}</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500">
             {totalPages} page{totalPages !== 1 ? 's' : ''} &middot; {annotationFields.length} fields
           </span>
+          <div className="flex items-center gap-1 ml-2">
+            <button
+              onClick={handleZoomOut}
+              className="p-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              title="Zoom out"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-xs text-gray-500 w-12 text-center">{Math.round(scale * 100)}%</span>
+            <button
+              onClick={handleZoomIn}
+              className="p-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              title="Zoom in"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+          </div>
           <button
             onClick={handleRealign}
             className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            title="Realign fields"
+            title="Fit to width & realign fields"
           >
             <RefreshCw className="w-3.5 h-3.5" />
             Realign
