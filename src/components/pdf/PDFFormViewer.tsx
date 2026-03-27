@@ -88,16 +88,35 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     return () => window.removeEventListener('resize', handleResize)
   }, [pdfDoc, totalPages, pdfRotation])
 
-  // Render all pages with cancellation support
+  // Calculate page dimensions (synchronous with viewport, no rendering needed)
+  useEffect(() => {
+    if (!pdfDoc || totalPages === 0) return
+
+    const calcDimensions = async () => {
+      const heights: number[] = []
+      const dimensions: { width: number; height: number }[] = []
+
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum)
+        const viewport = page.getViewport({ scale, rotation: pdfRotation })
+        heights.push(viewport.height)
+        dimensions.push({ width: viewport.width, height: viewport.height })
+      }
+
+      setPageHeights(heights)
+      setPageDimensions(dimensions)
+    }
+
+    calcDimensions()
+  }, [pdfDoc, totalPages, scale, pdfRotation])
+
+  // Render all pages to canvas with cancellation support
   useEffect(() => {
     if (!pdfDoc || totalPages === 0) return
 
     const generation = ++renderGenRef.current
 
     const renderAllPages = async () => {
-      const heights: number[] = []
-      const dimensions: { width: number; height: number }[] = []
-
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         if (renderGenRef.current !== generation) return
         const canvas = canvasRefs.current[pageNum - 1]
@@ -109,8 +128,6 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
 
         canvas.height = viewport.height
         canvas.width = viewport.width
-        heights.push(viewport.height)
-        dimensions.push({ width: viewport.width, height: viewport.height })
 
         if (renderGenRef.current !== generation) return
         const renderTask = page.render({
@@ -124,13 +141,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
           if (e?.name === 'RenderingCancelledException') return
           throw e
         }
-        // After render completes, verify this is still the latest generation
         if (renderGenRef.current !== generation) return
-      }
-
-      if (renderGenRef.current === generation) {
-        setPageHeights(heights)
-        setPageDimensions(dimensions)
       }
     }
 
