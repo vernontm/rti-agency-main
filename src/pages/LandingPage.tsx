@@ -342,7 +342,7 @@ const LandingPage = () => {
         </section>
 
         {/* Promise / About Section */}
-        <section id="about" className="py-24 bg-gray-50 relative overflow-hidden" aria-labelledby="promise-heading">
+        <section id="about" className="py-24 bg-[#f0f4f8] relative overflow-hidden" aria-labelledby="promise-heading">
           <div className="max-w-[1280px] mx-auto px-6 relative z-10">
             <div className="text-center mb-16">
               <span className="text-[#fe9226] text-sm font-semibold uppercase tracking-[0.15em] mb-4 block">Why Choose Us</span>
@@ -370,7 +370,7 @@ const LandingPage = () => {
               </div>
 
               {/* Image Slider */}
-              <div className="relative rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.12)] h-[520px]-in">
+              <div className="relative rounded-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.12)] h-[520px]">
                 {STAFF_IMAGES.map((imgSrc, index) => (
                   <div
                     key={index}
