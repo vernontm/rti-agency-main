@@ -4,7 +4,7 @@ import type { Tables, UserRole, UserStatus } from '../types/database.types'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import { Search, Edit2, Trash2, X, CheckCircle, XCircle } from 'lucide-react'
+import { Search, Edit2, Trash2, X, CheckCircle, XCircle, UserPlus, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const UsersPage = () => {
@@ -14,6 +14,15 @@ const UsersPage = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | UserStatus>('all')
   const [showModal, setShowModal] = useState(false)
   const [editingUser, setEditingUser] = useState<Tables<'users'> | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addingUser, setAddingUser] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [addFormData, setAddFormData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    role: 'client' as UserRole,
+  })
   const [formData, setFormData] = useState({
     full_name: '',
     email: '',
@@ -63,6 +72,41 @@ const UsersPage = () => {
     } catch (error) {
       console.error('Error saving user:', error)
       toast.error('Failed to save user')
+    }
+  }
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!addFormData.email || !addFormData.password || !addFormData.full_name) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+    if (addFormData.password.length < 6) {
+      toast.error('Password must be at least 6 characters')
+      return
+    }
+    setAddingUser(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: addFormData.email,
+          password: addFormData.password,
+          full_name: addFormData.full_name,
+          role: addFormData.role,
+        },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      toast.success('User created successfully')
+      setShowAddModal(false)
+      setAddFormData({ full_name: '', email: '', password: '', role: 'client' })
+      setShowPassword(false)
+      fetchUsers()
+    } catch (error: any) {
+      console.error('Error creating user:', error)
+      toast.error(error.message || 'Failed to create user')
+    } finally {
+      setAddingUser(false)
     }
   }
 
@@ -170,6 +214,10 @@ const UsersPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Users</h1>
           <p className="text-gray-600 mt-1">Manage user accounts and roles</p>
         </div>
+        <Button onClick={() => setShowAddModal(true)} className="flex items-center gap-2">
+          <UserPlus className="w-4 h-4" />
+          Add User
+        </Button>
       </div>
 
       <Card>
@@ -289,6 +337,102 @@ const UsersPage = () => {
           )}
         </div>
       </Card>
+
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Add New User</h2>
+              <button
+                onClick={() => {
+                  setShowAddModal(false)
+                  setAddFormData({ full_name: '', email: '', password: '', role: 'client' })
+                  setShowPassword(false)
+                }}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddUser} className="space-y-4">
+              <Input
+                label="Full Name"
+                value={addFormData.full_name}
+                onChange={(e) => setAddFormData({ ...addFormData, full_name: e.target.value })}
+                placeholder="John Doe"
+                required
+              />
+
+              <Input
+                label="Email"
+                type="email"
+                value={addFormData.email}
+                onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
+                placeholder="john@example.com"
+                required
+              />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={addFormData.password}
+                    onChange={(e) => setAddFormData({ ...addFormData, password: e.target.value })}
+                    placeholder="Min. 6 characters"
+                    required
+                    minLength={6}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Role
+                </label>
+                <select
+                  value={addFormData.role}
+                  onChange={(e) => setAddFormData({ ...addFormData, role: e.target.value as UserRole })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="client">Client</option>
+                  <option value="employee">Employee</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowAddModal(false)
+                    setAddFormData({ full_name: '', email: '', password: '', role: 'client' })
+                    setShowPassword(false)
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" disabled={addingUser}>
+                  {addingUser ? 'Creating...' : 'Create User'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
