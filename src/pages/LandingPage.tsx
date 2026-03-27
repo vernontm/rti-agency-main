@@ -338,10 +338,10 @@ const LandingPage = () => {
                   { icon: Users, label: 'Family Support', value: 'Coordinated' },
                   { icon: Home, label: 'Independent Living', value: 'Skills Training' },
                 ].map((stat, i) => (
-                  <div key={i} className="bg-gray-50 rounded-2xl p-6 group hover:bg-[#003d5c] transition-all duration-300">
+                  <div key={i} className="bg-[#003d5c] rounded-2xl p-6 group hover:bg-gray-100 transition-all duration-300">
                     <stat.icon className="w-6 h-6 text-[#fe9226] mb-4" />
-                    <p className="text-[#003d5c] font-bold text-lg group-hover:text-white transition-colors">{stat.value}</p>
-                    <p className="text-gray-400 text-sm group-hover:text-white/60 transition-colors">{stat.label}</p>
+                    <p className="text-white font-bold text-lg group-hover:text-[#003d5c] transition-colors">{stat.value}</p>
+                    <p className="text-white/60 text-sm group-hover:text-gray-400 transition-colors">{stat.label}</p>
                   </div>
                 ))}
               </div>
