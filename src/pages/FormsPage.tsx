@@ -19,6 +19,7 @@ interface FormSchema {
   type?: string
   pdfUrl?: string
   fields?: PDFFormField[]
+  pdfRotation?: number
 }
 
 const FormsPage = () => {
@@ -147,6 +148,7 @@ const FormsPage = () => {
             pdfUrl={schema.pdfUrl}
             fields={schema.fields}
             formName={selectedForm.form_name}
+            pdfRotation={schema.pdfRotation ?? 0}
             onSubmit={async (values) => {
               try {
                 toast.loading('Generating signed document...', { id: 'pdf-gen' })
@@ -381,6 +383,7 @@ const FormsPage = () => {
                     onSubmit={() => {}}
                     readOnly={true}
                     initialValues={selectedSubmission.data as Record<string, string | boolean>}
+                    pdfRotation={formSchema.pdfRotation ?? 0}
                   />
                 </div>
                 {isAdmin && selectedSubmission.status === 'pending' && (

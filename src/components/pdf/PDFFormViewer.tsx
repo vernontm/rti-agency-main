@@ -15,6 +15,7 @@ interface PDFFormViewerProps {
   onSubmit: (values: Record<string, string | boolean | { text: string; font: string }>) => void
   readOnly?: boolean
   initialValues?: Record<string, string | boolean | { text: string; font: string }>
+  pdfRotation?: number
 }
 
 // Signature font options
@@ -26,7 +27,7 @@ const signatureFonts = [
 
 type FieldValue = string | boolean | { text: string; font: string }
 
-const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, initialValues = {} }: PDFFormViewerProps) => {
+const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, initialValues = {}, pdfRotation = 0 }: PDFFormViewerProps) => {
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [totalPages, setTotalPages] = useState(0)
   const [scale, setScale] = useState(1.2)
@@ -71,7 +72,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
       await new Promise(resolve => requestAnimationFrame(resolve))
 
       const page = await pdfDoc.getPage(1)
-      const viewport = page.getViewport({ scale: 1, rotation: page.rotate })
+      const viewport = page.getViewport({ scale: 1, rotation: pdfRotation })
       const containerWidth = viewer.clientWidth - 48 // Account for padding
       if (containerWidth <= 0) return
       const newScale = containerWidth / viewport.width
@@ -83,7 +84,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     const handleResize = () => calculateFitScale()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
-  }, [pdfDoc, totalPages])
+  }, [pdfDoc, totalPages, pdfRotation])
 
   // Render all pages
   useEffect(() => {
@@ -98,7 +99,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
         if (!canvas) continue
 
         const page = await pdfDoc.getPage(pageNum)
-        const viewport = page.getViewport({ scale, rotation: page.rotate })
+        const viewport = page.getViewport({ scale, rotation: pdfRotation })
         const context = canvas.getContext('2d')!
 
         canvas.height = viewport.height

@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import Card from '../ui/Card'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
-import { Upload, Trash2, Save, Type, CheckSquare, Calendar, Hash, Mail, Phone, FileText, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Upload, Trash2, Save, Type, CheckSquare, Calendar, Hash, Mail, Phone, FileText, X, ChevronLeft, ChevronRight, RotateCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // Set worker path - use local worker file
@@ -25,10 +25,11 @@ export interface PDFFormField {
 }
 
 interface PDFFormBuilderProps {
-  onSave: (pdfUrl: string, fields: PDFFormField[], formName: string) => void
+  onSave: (pdfUrl: string, fields: PDFFormField[], formName: string, pdfRotation?: number) => void
   initialPdfUrl?: string
   initialFields?: PDFFormField[]
   initialFormName?: string
+  initialRotation?: number
 }
 
 const fieldTypes = [
@@ -42,7 +43,7 @@ const fieldTypes = [
   { type: 'textarea', icon: FileText, label: 'Text Area' },
 ] as const
 
-const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName }: PDFFormBuilderProps) => {
+const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName, initialRotation }: PDFFormBuilderProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(initialPdfUrl || null)
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -50,6 +51,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
   const [scale, setScale] = useState(1.2)
   const [fields, setFields] = useState<PDFFormField[]>([])
   const [fieldsInitialized, setFieldsInitialized] = useState(false)
+  const [pdfRotation, setPdfRotation] = useState(initialRotation ?? 0)
   const [selectedField, setSelectedField] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
@@ -91,7 +93,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum)
       const annotations = await page.getAnnotations()
-      const viewport = page.getViewport({ scale, rotation: page.rotate })
+      const viewport = page.getViewport({ scale, rotation: pdfRotation })
 
       // First try to detect AcroForm fields
       for (const annotation of annotations) {
@@ -204,7 +206,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
 
     const renderPage = async () => {
       const page = await pdfDoc.getPage(currentPage)
-      const viewport = page.getViewport({ scale, rotation: page.rotate })
+      const viewport = page.getViewport({ scale, rotation: pdfRotation })
       const canvas = canvasRef.current!
       const context = canvas.getContext('2d')!
 
@@ -219,7 +221,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
         const allPageDims: Record<number, { width: number; height: number }> = {}
         for (let p = 1; p <= pdfDoc.numPages; p++) {
           const pg = await pdfDoc.getPage(p)
-          const vp = pg.getViewport({ scale, rotation: pg.rotate })
+          const vp = pg.getViewport({ scale, rotation: pdfRotation })
           allPageDims[p] = { width: vp.width, height: vp.height }
         }
         setPageDimensions(allPageDims)
@@ -246,7 +248,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
     }
 
     renderPage()
-  }, [pdfDoc, currentPage, scale])
+  }, [pdfDoc, currentPage, scale, pdfRotation])
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -278,6 +280,17 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
       toast.error('Failed to upload PDF')
     } finally {
       setUploading(false)
+    }
+  }
+
+  const handleRotate = () => {
+    const newRotation = (pdfRotation + 90) % 360
+    setPdfRotation(newRotation)
+    // Clear fields when rotating since positions won't match
+    if (fields.length > 0) {
+      toast('Fields cleared — reposition them on the rotated PDF', { icon: 'ℹ️' })
+      setFields([])
+      setFieldsInitialized(true) // prevent re-loading old positions
     }
   }
 
@@ -400,7 +413,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
           height: (field.height / dims.height) * 100,
         }
       })
-      await onSave(pdfUrl, normalizedFields, formName)
+      await onSave(pdfUrl, normalizedFields, formName, pdfRotation)
     } finally {
       setSaving(false)
     }
@@ -568,6 +581,10 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
                   <option value={1.2}>120%</option>
                   <option value={1.5}>150%</option>
                 </select>
+                <Button onClick={handleRotate} variant="outline" size="sm">
+                  <RotateCw className="w-4 h-4 mr-1" />
+                  Rotate ({pdfRotation}°)
+                </Button>
                 <Button onClick={() => fileInputRef.current?.click()} variant="outline" size="sm">
                   <Upload className="w-4 h-4 mr-1" />
                   Replace PDF

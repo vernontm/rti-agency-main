@@ -19,6 +19,7 @@ interface Form {
     pdf_url?: string
     pdfUrl?: string
     fields?: PDFFormField[]
+    pdfRotation?: number
   }
 }
 
@@ -214,6 +215,7 @@ const EducatorAreaPage = () => {
             fields={schema.fields}
             formName={selectedForm.form_name}
             onSubmit={handleFormSubmit}
+            pdfRotation={schema.pdfRotation ?? 0}
           />
         </div>
       )

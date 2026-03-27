@@ -23,6 +23,7 @@ interface EditingPDFForm {
   pdfUrl: string
   fields: PDFFormField[]
   formName: string
+  pdfRotation?: number
 }
 
 const FormBuilderPage = () => {
@@ -65,15 +66,16 @@ const FormBuilderPage = () => {
     setBuilderMode(mode)
   }
 
-  const handlePDFFormSave = async (pdfUrl: string, pdfFields: PDFFormField[], name: string) => {
+  const handlePDFFormSave = async (pdfUrl: string, pdfFields: PDFFormField[], name: string, pdfRotation?: number) => {
     try {
       const formData = {
         form_name: name,
         form_type: name.toLowerCase().replace(/\s+/g, '_'),
-        fields_schema: { 
+        fields_schema: {
           type: 'pdf',
           pdfUrl,
-          fields: pdfFields 
+          fields: pdfFields,
+          pdfRotation: pdfRotation ?? 0,
         },
       }
 
@@ -111,15 +113,16 @@ const FormBuilderPage = () => {
   }
 
   const editForm = (form: Tables<'forms'>) => {
-    const schema = form.fields_schema as { type?: string; fields?: FormField[] | PDFFormField[]; pdfUrl?: string }
-    
+    const schema = form.fields_schema as { type?: string; fields?: FormField[] | PDFFormField[]; pdfUrl?: string; pdfRotation?: number }
+
     // Check if it's a PDF form
     if (schema?.type === 'pdf') {
       setEditingPDFForm({
         id: form.id,
         pdfUrl: schema.pdfUrl || '',
         fields: (schema.fields as PDFFormField[]) || [],
-        formName: form.form_name
+        formName: form.form_name,
+        pdfRotation: schema.pdfRotation ?? 0,
       })
       setBuilderMode('pdf')
       return
@@ -256,11 +259,12 @@ const FormBuilderPage = () => {
             </p>
           </div>
         </div>
-        <PDFFormBuilder 
+        <PDFFormBuilder
           onSave={handlePDFFormSave}
           initialPdfUrl={editingPDFForm?.pdfUrl}
           initialFields={editingPDFForm?.fields}
           initialFormName={editingPDFForm?.formName}
+          initialRotation={editingPDFForm?.pdfRotation}
         />
       </div>
     )
