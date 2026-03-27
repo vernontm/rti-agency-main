@@ -708,8 +708,9 @@ const LandingPage = () => {
             </div>
           </div>
 
-          <div className="text-center pt-8 border-t border-white/[0.06] text-white/30 text-xs">
+          <div className="text-center pt-8 border-t border-white/[0.06] text-white/30 text-xs flex flex-col sm:flex-row items-center justify-between gap-2">
             <p>&copy; {new Date().getFullYear()} Road to Independence. All rights reserved.</p>
+            <a href="https://vernontm.com" target="_blank" rel="noopener" className="hover:text-[#fe9226] transition-colors">Built by Vernon Tech &amp; Media</a>
           </div>
         </div>
       </footer>
