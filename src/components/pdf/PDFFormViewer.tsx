@@ -64,12 +64,16 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     if (!pdfDoc || !viewerRef.current || totalPages === 0) return
 
     const calculateFitScale = async () => {
-      // Wait for container to be rendered
-      await new Promise(resolve => setTimeout(resolve, 100))
+      const viewer = viewerRef.current
+      if (!viewer) return
+
+      // Use requestAnimationFrame to ensure container is laid out
+      await new Promise(resolve => requestAnimationFrame(resolve))
 
       const page = await pdfDoc.getPage(1)
       const viewport = page.getViewport({ scale: 1, rotation: page.rotate })
-      const containerWidth = viewerRef.current!.clientWidth - 48 // Account for padding
+      const containerWidth = viewer.clientWidth - 48 // Account for padding
+      if (containerWidth <= 0) return
       const newScale = containerWidth / viewport.width
       setScale(Math.min(Math.max(newScale, 0.5), 2.5)) // Min 50%, max 250%
     }
@@ -281,27 +285,32 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
         >
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
             const pageFields = fields.filter(f => f.page === pageNum)
-            const pageDim = pageDimensions[pageNum - 1] || { width: 1, height: 1 }
+            const pageDim = pageDimensions[pageNum - 1]
             return (
-              <div key={pageNum} className="relative">
+              <div
+                key={pageNum}
+                className="relative"
+                style={pageDim ? { width: pageDim.width, height: pageDim.height } : undefined}
+              >
                 <canvas
                   ref={(el) => { canvasRefs.current[pageNum - 1] = el }}
-                  className="shadow-lg"
+                  className="shadow-lg block"
+                  style={pageDim ? { width: pageDim.width, height: pageDim.height } : undefined}
                 />
-                {/* Field inputs overlay for this page */}
-                {pageFields.map((field) => {
-                  // Convert percentage coordinates to pixels
+                {/* Field inputs overlay for this page - only render when dimensions are ready */}
+                {pageDim && pageDim.width > 1 && pageFields.map((field) => {
+                  // Convert percentage coordinates to pixels using actual canvas dimensions
                   const pixelX = (field.x / 100) * pageDim.width
                   const pixelY = (field.y / 100) * pageDim.height
                   const pixelWidth = (field.width / 100) * pageDim.width
                   const pixelHeight = (field.height / 100) * pageDim.height
-                  
+
                   return (
                     <div
                       key={field.id}
                       className={`absolute bg-white/90 border ${
-                        field.required && !values[field.id] 
-                          ? 'border-red-300' 
+                        field.required && !values[field.id]
+                          ? 'border-red-300'
                           : 'border-blue-300'
                       } rounded overflow-hidden`}
                       style={{

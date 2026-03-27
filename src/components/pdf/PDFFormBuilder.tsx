@@ -587,11 +587,16 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName 
               <div
                 ref={containerRef}
                 className="relative inline-block"
+                style={canvasDimensions.width > 0 ? { width: canvasDimensions.width, height: canvasDimensions.height } : undefined}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
               >
-                <canvas ref={canvasRef} className="shadow-lg" />
+                <canvas
+                  ref={canvasRef}
+                  className="shadow-lg block"
+                  style={canvasDimensions.width > 0 ? { width: canvasDimensions.width, height: canvasDimensions.height } : undefined}
+                />
                 
                 {/* Field overlays */}
                 {currentPageFields.map((field) => (
