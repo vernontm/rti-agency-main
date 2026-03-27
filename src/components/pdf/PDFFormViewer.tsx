@@ -60,6 +60,9 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     loadPdf()
   }, [pdfUrl])
 
+  // Track render generation to prevent stale renders from overwriting fresh ones
+  const renderGenRef = useRef(0)
+
   // Calculate scale to fit width
   useEffect(() => {
     if (!pdfDoc || !viewerRef.current || totalPages === 0) return
@@ -68,15 +71,14 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
       const viewer = viewerRef.current
       if (!viewer) return
 
-      // Use requestAnimationFrame to ensure container is laid out
       await new Promise(resolve => requestAnimationFrame(resolve))
 
       const page = await pdfDoc.getPage(1)
       const viewport = page.getViewport({ scale: 1, rotation: pdfRotation })
-      const containerWidth = viewer.clientWidth - 48 // Account for padding
+      const containerWidth = viewer.clientWidth - 48
       if (containerWidth <= 0) return
       const newScale = containerWidth / viewport.width
-      setScale(Math.min(Math.max(newScale, 0.5), 2.5)) // Min 50%, max 250%
+      setScale(Math.min(Math.max(newScale, 0.5), 2.5))
     }
 
     calculateFitScale()
@@ -86,15 +88,18 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
     return () => window.removeEventListener('resize', handleResize)
   }, [pdfDoc, totalPages, pdfRotation])
 
-  // Render all pages
+  // Render all pages with cancellation support
   useEffect(() => {
     if (!pdfDoc || totalPages === 0) return
+
+    const generation = ++renderGenRef.current
 
     const renderAllPages = async () => {
       const heights: number[] = []
       const dimensions: { width: number; height: number }[] = []
 
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        if (renderGenRef.current !== generation) return
         const canvas = canvasRefs.current[pageNum - 1]
         if (!canvas) continue
 
@@ -107,19 +112,30 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
         heights.push(viewport.height)
         dimensions.push({ width: viewport.width, height: viewport.height })
 
-        await page.render({
+        if (renderGenRef.current !== generation) return
+        const renderTask = page.render({
           canvasContext: context,
           viewport,
-          canvas: canvas,
-        } as unknown as Parameters<typeof page.render>[0]).promise
+        } as unknown as Parameters<typeof page.render>[0])
+
+        try {
+          await renderTask.promise
+        } catch (e: any) {
+          if (e?.name === 'RenderingCancelledException') return
+          throw e
+        }
+        // After render completes, verify this is still the latest generation
+        if (renderGenRef.current !== generation) return
       }
-      
-      setPageHeights(heights)
-      setPageDimensions(dimensions)
+
+      if (renderGenRef.current === generation) {
+        setPageHeights(heights)
+        setPageDimensions(dimensions)
+      }
     }
 
     renderAllPages()
-  }, [pdfDoc, totalPages, scale])
+  }, [pdfDoc, totalPages, scale, pdfRotation])
 
   const handleValueChange = (fieldId: string, value: FieldValue) => {
     setValues(prev => ({ ...prev, [fieldId]: value }))
