@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import Button from '../ui/Button'
-import { Send } from 'lucide-react'
+import { Send, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // Set worker path
@@ -191,6 +191,18 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
     }
   }
 
+  const handleRealign = async () => {
+    if (!pdfDoc || !viewerRef.current) return
+    const viewer = viewerRef.current
+    const page = await pdfDoc.getPage(1)
+    const viewport = page.getViewport({ scale: 1 })
+    const containerWidth = viewer.clientWidth - 48
+    if (containerWidth <= 0) return
+    const newScale = containerWidth / viewport.width
+    setScale(Math.min(Math.max(newScale, 0.5), 2.5))
+    toast.success('Fields realigned')
+  }
+
   const handleSubmit = async () => {
     const allValues: Record<string, string | boolean> = { ...values }
 
@@ -219,9 +231,19 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
       {/* Header */}
       <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">{formName}</h2>
-        <span className="text-sm text-gray-500">
-          {totalPages} page{totalPages !== 1 ? 's' : ''} &middot; {annotationFields.length} fields
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-500">
+            {totalPages} page{totalPages !== 1 ? 's' : ''} &middot; {annotationFields.length} fields
+          </span>
+          <button
+            onClick={handleRealign}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            title="Realign fields"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Realign
+          </button>
+        </div>
       </div>
 
       {/* PDF Viewer */}
