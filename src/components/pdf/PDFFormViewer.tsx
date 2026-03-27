@@ -71,7 +71,9 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
       await new Promise(resolve => requestAnimationFrame(resolve))
 
       const page = await pdfDoc.getPage(1)
-      const viewport = page.getViewport({ scale: 1, rotation: page.rotate })
+      // Use rotation: 0 to render PDF content as-is (avoids upside-down rendering
+      // from incorrect page.rotate metadata in scanned PDFs)
+      const viewport = page.getViewport({ scale: 1, rotation: 0 })
       const containerWidth = viewer.clientWidth - 48 // Account for padding
       if (containerWidth <= 0) return
       const newScale = containerWidth / viewport.width
@@ -98,8 +100,8 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
         if (!canvas) continue
 
         const page = await pdfDoc.getPage(pageNum)
-        // Respect the PDF page's native rotation
-        const viewport = page.getViewport({ scale, rotation: page.rotate })
+        // Use rotation: 0 to render content as-is — matches how fields are positioned in the builder
+        const viewport = page.getViewport({ scale, rotation: 0 })
         const context = canvas.getContext('2d')!
 
         canvas.height = viewport.height
@@ -277,11 +279,11 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
       </div>
 
       {/* PDF Viewer - All Pages */}
-      <div ref={viewerRef} className="flex-1 overflow-auto bg-gray-100 rounded-lg p-4">
+      <div ref={viewerRef} className="flex-1 overflow-auto bg-gray-100 rounded-lg p-6">
         <div
           ref={containerRef}
           className="mx-auto space-y-4"
-          style={{ width: 'fit-content' }}
+          style={{ width: 'fit-content', maxWidth: '100%' }}
         >
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
             const pageFields = fields.filter(f => f.page === pageNum)
