@@ -26,7 +26,7 @@ export interface PDFFormField {
 }
 
 interface PDFFormBuilderProps {
-  onSave: (pdfUrl: string, fields: PDFFormField[], formName: string, pdfRotation?: number) => void
+  onSave: (pdfUrl: string, fields: PDFFormField[], formName: string, pdfRotation?: number, acroForm?: boolean) => void
   initialPdfUrl?: string
   initialFields?: PDFFormField[]
   initialFormName?: string
@@ -78,6 +78,11 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
         setPdfDoc(pdf)
         setTotalPages(pdf.numPages)
         setCurrentPage(1)
+        // Auto-detect fields if no initial fields provided
+        if (!initialFields || initialFields.length === 0) {
+          // Defer extraction to after first render so canvas dimensions are available
+          setTimeout(() => extractFormFields(pdf), 500)
+        }
       } catch (error) {
         console.error('Error loading PDF:', error)
         toast.error('Failed to load PDF')
@@ -99,7 +104,12 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
       // First try to detect AcroForm fields
       for (const annotation of annotations) {
         if (annotation.subtype === 'Widget') {
-          const fieldType = mapAnnotationType(annotation.fieldType)
+          const fieldName = annotation.fieldName || `field_${detectedFields.length + 1}`
+          // Determine field type: check for sig in name, otherwise use annotation type
+          let fieldType = mapAnnotationType(annotation.fieldType)
+          if (/sig/i.test(fieldName) && !/initials/i.test(fieldName)) {
+            fieldType = 'signature'
+          }
           if (fieldType) {
             const rect = annotation.rect
             const [x1, y1, x2, y2] = rect
@@ -107,11 +117,12 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
             const transformedY = viewport.height - (y2 * scale)
             const width = (x2 - x1) * scale
             const height = (y2 - y1) * scale
-            
+
             detectedFields.push({
               id: `field_${Date.now()}_${detectedFields.length}`,
-              name: annotation.fieldName || `field_${detectedFields.length + 1}`,
-              label: annotation.alternativeText || annotation.fieldName || `Field ${detectedFields.length + 1}`,
+              name: fieldName,
+              acroFieldName: fieldName,
+              label: annotation.alternativeText || fieldName.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
               type: fieldType,
               x: Math.max(0, transformedX),
               y: Math.max(0, transformedY),
@@ -414,7 +425,8 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
           height: (field.height / dims.height) * 100,
         }
       })
-      await onSave(pdfUrl, normalizedFields, formName, pdfRotation)
+      const hasAcroFields = normalizedFields.some(f => f.acroFieldName)
+      await onSave(pdfUrl, normalizedFields, formName, pdfRotation, hasAcroFields)
     } finally {
       setSaving(false)
     }

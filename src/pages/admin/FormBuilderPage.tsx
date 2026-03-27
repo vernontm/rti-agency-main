@@ -66,7 +66,7 @@ const FormBuilderPage = () => {
     setBuilderMode(mode)
   }
 
-  const handlePDFFormSave = async (pdfUrl: string, pdfFields: PDFFormField[], name: string, pdfRotation?: number) => {
+  const handlePDFFormSave = async (pdfUrl: string, pdfFields: PDFFormField[], name: string, pdfRotation?: number, acroForm?: boolean) => {
     try {
       const formData = {
         form_name: name,
@@ -76,6 +76,7 @@ const FormBuilderPage = () => {
           pdfUrl,
           fields: pdfFields,
           pdfRotation: pdfRotation ?? 0,
+          ...(acroForm ? { acroForm: true } : {}),
         },
       }
 
