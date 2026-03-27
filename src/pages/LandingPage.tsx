@@ -18,15 +18,15 @@ const FAQ_DATA = [
     question: 'What is an Intellectual Disability?',
     answer: (
       <>
-        <p className="text-gray-600 leading-relaxed mb-4">
+        <p className="text-white/80 leading-relaxed mb-4">
           Intellectual disabilities are a group of conditions due to an impairment in physical, learning, language, or behavior areas. These conditions begin during the developmental period, may impact day-to-day functioning, and usually last throughout a person's lifetime.
         </p>
-        <p className="text-gray-600 leading-relaxed mb-4">
+        <p className="text-white/80 leading-relaxed mb-4">
           A "substantial disability" means the existence of significant functional limitations in three or more of the following areas of major life activity, as determined by a regional center, and as appropriate to the age of the person:
         </p>
         <ul className="space-y-2">
           {['Self-care', 'Receptive and expressive language', 'Learning', 'Mobility', 'Self-direction', 'Capacity for independent living', 'Economic self-sufficiency'].map((item, i) => (
-            <li key={i} className="text-gray-600 flex items-start gap-3">
+            <li key={i} className="text-white/80 flex items-start gap-3">
               <span className="w-1.5 h-1.5 rounded-full bg-[#fe9226] mt-2 shrink-0" />
               {item}
             </li>
@@ -39,7 +39,7 @@ const FAQ_DATA = [
     question: 'What Services Does RTI Provide?',
     answer: (
       <>
-        <p className="text-gray-600 leading-relaxed mb-4">
+        <p className="text-white/80 leading-relaxed mb-4">
           Road to Independence offers a range of services designed to support individuals with developmental disabilities and their families:
         </p>
         <ul className="space-y-3">
@@ -51,8 +51,8 @@ const FAQ_DATA = [
           ].map((item, i) => (
             <li key={i} className="flex items-start gap-3">
               <span className="w-1.5 h-1.5 rounded-full bg-[#fe9226] mt-2 shrink-0" />
-              <span className="text-gray-600">
-                <span className="font-semibold text-[#003d5c]">{item.title}</span> — {item.desc}
+              <span className="text-white/80">
+                <span className="font-semibold text-[#fe9226]">{item.title}</span> — {item.desc}
               </span>
             </li>
           ))}
@@ -64,7 +64,7 @@ const FAQ_DATA = [
     question: 'How Do I Get Started with RTI?',
     answer: (
       <>
-        <p className="text-gray-600 leading-relaxed mb-4">
+        <p className="text-white/80 leading-relaxed mb-4">
           Getting started with Road to Independence is simple. Here's what you need to know:
         </p>
         <ul className="space-y-3">
@@ -77,7 +77,7 @@ const FAQ_DATA = [
           ].map((item, i) => (
             <li key={i} className="flex items-start gap-3">
               <span className="w-1.5 h-1.5 rounded-full bg-[#fe9226] mt-2 shrink-0" />
-              <span className="text-gray-600">{item}</span>
+              <span className="text-white/80">{item}</span>
             </li>
           ))}
         </ul>
@@ -88,7 +88,7 @@ const FAQ_DATA = [
     question: 'What Qualifications Do Your Staff Have?',
     answer: (
       <>
-        <p className="text-gray-600 leading-relaxed mb-4">
+        <p className="text-white/80 leading-relaxed mb-4">
           All Road to Independence staff members undergo thorough screening and training to provide the highest quality of care:
         </p>
         <ul className="space-y-3">
@@ -102,7 +102,7 @@ const FAQ_DATA = [
           ].map((item, i) => (
             <li key={i} className="flex items-start gap-3">
               <span className="w-1.5 h-1.5 rounded-full bg-[#fe9226] mt-2 shrink-0" />
-              <span className="text-gray-600">{item}</span>
+              <span className="text-white/80">{item}</span>
             </li>
           ))}
         </ul>
@@ -605,12 +605,12 @@ const LandingPage = () => {
 
             <div className="space-y-3">
               {FAQ_DATA.map((faq, index) => (
-                <div key={index} className="border border-gray-200 rounded-xl overflow-hidden hover:border-[#fe9226]/30 transition-colors">
+                <div key={index} className="bg-[#003d5c] rounded-xl overflow-hidden hover:bg-[#004a6e] transition-colors">
                   <button
                     onClick={() => setOpenFAQ(openFAQ === index ? null : index)}
                     className="w-full flex items-center justify-between px-6 py-5 text-left"
                   >
-                    <span className="text-[#003d5c] font-semibold pr-4">{faq.question}</span>
+                    <span className="text-white font-semibold pr-4">{faq.question}</span>
                     <ChevronDown className={`w-5 h-5 text-[#fe9226] shrink-0 transition-transform duration-300 ${openFAQ === index ? 'rotate-180' : ''}`} />
                   </button>
                   <div className={`transition-all duration-300 ease-in-out overflow-hidden ${openFAQ === index ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
