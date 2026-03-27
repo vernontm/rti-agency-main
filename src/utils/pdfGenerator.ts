@@ -151,6 +151,98 @@ export async function generateFilledPDF(
   return pdfBytes
 }
 
+/**
+ * Generate a filled PDF from AcroForm viewer values.
+ * Values are keyed by AcroForm field name (not field ID).
+ * Special keys: _signature_text, _signature_font, _signature_date, _print_name
+ */
+export async function generateAcroFilledPDF(
+  pdfUrl: string,
+  values: Record<string, string | boolean>
+): Promise<Uint8Array> {
+  const existingPdfBytes = await fetch(pdfUrl).then(res => res.arrayBuffer())
+  const pdfDoc = await PDFDocument.load(existingPdfBytes)
+  pdfDoc.registerFontkit(fontkit)
+
+  const form = pdfDoc.getForm()
+  const allFields = form.getFields()
+
+  // Load signature font if needed
+  const sigFontCss = values['_signature_font'] as string
+  let signatureFont: Awaited<ReturnType<typeof pdfDoc.embedFont>> | null = null
+  if (sigFontCss && fontFileMap[sigFontCss]) {
+    try {
+      const fontBytes = await fetch(fontFileMap[sigFontCss]).then(res => res.arrayBuffer())
+      signatureFont = await pdfDoc.embedFont(fontBytes)
+    } catch (e) {
+      console.warn('Failed to load signature font:', e)
+    }
+  }
+
+  // Fill AcroForm fields from collected values
+  for (const field of allFields) {
+    const name = field.getName()
+    const value = values[name]
+
+    if (value === undefined || value === null || value === '') continue
+
+    try {
+      const fieldType = field.constructor.name
+      if (fieldType === 'PDFCheckBox') {
+        const cb = form.getCheckBox(name)
+        if (value === true || value === 'true') {
+          cb.check()
+        }
+      } else if (fieldType === 'PDFTextField') {
+        const tf = form.getTextField(name)
+        // If this is a signature field, use signature font
+        if (/sig/i.test(name) && signatureFont && values['_signature_text']) {
+          tf.setText(values['_signature_text'] as string)
+          tf.updateAppearances(signatureFont)
+        } else {
+          tf.setText(String(value))
+        }
+      }
+    } catch (e) {
+      console.warn(`Could not fill field "${name}":`, e)
+    }
+  }
+
+  // Fill signature into all sig fields if user provided one
+  if (values['_signature_text']) {
+    for (const field of allFields) {
+      const name = field.getName()
+      if (/sig/i.test(name) && !values[name] && field.constructor.name === 'PDFTextField') {
+        try {
+          const tf = form.getTextField(name)
+          tf.setText(values['_signature_text'] as string)
+          if (signatureFont) tf.updateAppearances(signatureFont)
+        } catch (e) {
+          // Field might already be filled
+        }
+      }
+    }
+  }
+
+  // Fill date into date fields if user provided one
+  if (values['_signature_date']) {
+    for (const field of allFields) {
+      const name = field.getName()
+      if (/date/i.test(name) && !values[name] && field.constructor.name === 'PDFTextField') {
+        try {
+          const tf = form.getTextField(name)
+          tf.setText(values['_signature_date'] as string)
+        } catch (e) {
+          // Field might already be filled
+        }
+      }
+    }
+  }
+
+  form.flatten()
+  return pdfDoc.save()
+}
+
 export function uint8ArrayToBlob(uint8Array: Uint8Array): Blob {
   return new Blob([new Uint8Array(uint8Array)], { type: 'application/pdf' })
 }

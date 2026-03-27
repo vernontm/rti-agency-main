@@ -6,8 +6,9 @@ import Button from '../components/ui/Button'
 import { FileText, ExternalLink, X, Clock, CheckCircle, XCircle, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormViewer from '../components/pdf/PDFFormViewer'
+import AcroFormViewer from '../components/pdf/AcroFormViewer'
 import type { PDFFormField } from '../components/pdf/PDFFormBuilder'
-import { generateFilledPDF, uint8ArrayToBlob } from '../utils/pdfGenerator'
+import { generateFilledPDF, generateAcroFilledPDF, uint8ArrayToBlob } from '../utils/pdfGenerator'
 import type { Tables, FormStatus } from '../types/database.types'
 
 interface Form {
@@ -126,12 +127,19 @@ const EducatorAreaPage = () => {
       toast.loading('Generating signed document...', { id: 'pdf-gen' })
 
       // Generate the filled PDF
-      const pdfBytes = await generateFilledPDF(
-        pdfUrl!,
-        schema.fields!,
-        values,
-        schema.acroForm
-      )
+      let pdfBytes: Uint8Array
+      if (schema.acroForm) {
+        pdfBytes = await generateAcroFilledPDF(
+          pdfUrl!,
+          values as Record<string, string | boolean>
+        )
+      } else {
+        pdfBytes = await generateFilledPDF(
+          pdfUrl!,
+          schema.fields!,
+          values
+        )
+      }
       const pdfBlob = uint8ArrayToBlob(pdfBytes)
 
       // Upload the filled PDF to Supabase Storage
@@ -197,7 +205,7 @@ const EducatorAreaPage = () => {
     const schema = selectedForm.fields_schema
     const pdfUrl = schema.pdf_url || schema.pdfUrl
 
-    if (schema?.type === 'pdf' && pdfUrl && schema.fields) {
+    if (schema?.type === 'pdf' && pdfUrl) {
       return (
         <div className="space-y-4">
           <div className="flex items-center gap-4">
@@ -212,13 +220,21 @@ const EducatorAreaPage = () => {
               <p className="text-gray-600">Fill out the form below</p>
             </div>
           </div>
-          <PDFFormViewer
-            pdfUrl={pdfUrl}
-            fields={schema.fields}
-            formName={selectedForm.form_name}
-            onSubmit={handleFormSubmit}
-            pdfRotation={schema.pdfRotation ?? 0}
-          />
+          {schema.acroForm ? (
+            <AcroFormViewer
+              pdfUrl={pdfUrl}
+              formName={selectedForm.form_name}
+              onSubmit={handleFormSubmit}
+            />
+          ) : (
+            <PDFFormViewer
+              pdfUrl={pdfUrl}
+              fields={schema.fields!}
+              formName={selectedForm.form_name}
+              onSubmit={handleFormSubmit}
+              pdfRotation={schema.pdfRotation ?? 0}
+            />
+          )}
         </div>
       )
     }

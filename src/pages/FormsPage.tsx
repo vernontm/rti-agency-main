@@ -7,8 +7,9 @@ import Button from '../components/ui/Button'
 import { FileText, Eye, CheckCircle, XCircle, Clock, Filter, Plus, X, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormViewer from '../components/pdf/PDFFormViewer'
+import AcroFormViewer from '../components/pdf/AcroFormViewer'
 import type { PDFFormField } from '../components/pdf/PDFFormBuilder'
-import { generateFilledPDF, uint8ArrayToBlob } from '../utils/pdfGenerator'
+import { generateFilledPDF, generateAcroFilledPDF, uint8ArrayToBlob } from '../utils/pdfGenerator'
 
 interface FormSubmissionWithForm extends Tables<'form_submissions'> {
   forms?: Tables<'forms'>
@@ -133,7 +134,61 @@ const FormsPage = () => {
   // PDF Form filling view
   if (selectedForm) {
     const schema = selectedForm.fields_schema as FormSchema
-    if (schema?.type === 'pdf' && schema.pdfUrl && schema.fields) {
+    if (schema?.type === 'pdf' && schema.pdfUrl) {
+      const handleAcroSubmit = async (values: Record<string, string | boolean>) => {
+        try {
+          toast.loading('Generating signed document...', { id: 'pdf-gen' })
+          const pdfBytes = await generateAcroFilledPDF(schema.pdfUrl!, values)
+          const pdfBlob = uint8ArrayToBlob(pdfBytes)
+
+          const fileName = `submissions/${Date.now()}_${selectedForm.form_name.replace(/\s+/g, '_')}_signed.pdf`
+          const { error: uploadError } = await supabase.storage.from('forms').upload(fileName, pdfBlob)
+          if (uploadError) throw uploadError
+
+          const { data: { publicUrl } } = supabase.storage.from('forms').getPublicUrl(fileName)
+
+          const { error } = await supabase.from('form_submissions').insert({
+            form_id: selectedForm.id,
+            submitted_by: profile?.id,
+            data: values,
+            status: 'pending',
+            signed_pdf_url: publicUrl,
+          })
+          if (error) throw error
+
+          toast.dismiss('pdf-gen')
+          toast.success('Form submitted successfully!')
+          setSelectedForm(null)
+          fetchSubmissions()
+        } catch (error) {
+          toast.dismiss('pdf-gen')
+          console.error('Error submitting form:', error)
+          toast.error('Failed to submit form')
+        }
+      }
+
+      if (schema.acroForm) {
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSelectedForm(null)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Fill Out Form</h1>
+            </div>
+            <AcroFormViewer
+              pdfUrl={schema.pdfUrl}
+              formName={selectedForm.form_name}
+              onSubmit={handleAcroSubmit}
+            />
+          </div>
+        )
+      }
+
+      if (schema.fields) {
       return (
         <div className="space-y-4">
           <div className="flex items-center gap-4">
@@ -153,13 +208,12 @@ const FormsPage = () => {
             onSubmit={async (values) => {
               try {
                 toast.loading('Generating signed document...', { id: 'pdf-gen' })
-                
+
                 // Generate the filled PDF
                 const pdfBytes = await generateFilledPDF(
                   schema.pdfUrl!,
                   schema.fields!,
-                  values,
-                  schema.acroForm
+                  values
                 )
                 const pdfBlob = uint8ArrayToBlob(pdfBytes)
                 
@@ -199,6 +253,7 @@ const FormsPage = () => {
           />
         </div>
       )
+      }
     }
   }
 
