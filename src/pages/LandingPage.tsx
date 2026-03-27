@@ -378,7 +378,7 @@ const LandingPage = () => {
                   { title: 'Support & Guidance', desc: 'Provide support & guidance to individuals with special needs & their families.', num: '04' }
                 ].map((card, i) => (
                   <div key={i} className="bg-[#003d5c] rounded-2xl p-7 shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.25)] hover:-translate-y-1 transition-all duration-300 group">
-                    <span className="text-4xl font-bold text-[#fe9226]/30 group-hover:text-[#fe9226]/50 transition-colors">{card.num}</span>
+                    <span className="text-4xl font-bold text-[#fe9226]">{card.num}</span>
                     <h3 className="text-white font-bold text-base mt-3 mb-2">{card.title}</h3>
                     <p className="text-white/70 text-sm leading-relaxed">{card.desc}</p>
                   </div>
