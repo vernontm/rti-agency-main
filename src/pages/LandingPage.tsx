@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, Menu, X, Phone, MapPin, Mail, Clock } from 'lucide-react'
+import SitePopup from '../components/SitePopup'
 
 const RTI_LOGO = 'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/logos/RTI-logo.png'
 const HERO_SLIDES = [
@@ -132,6 +133,7 @@ const LandingPage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+      <SitePopup />
       {/* Top Info Bar */}
       <div className="fixed top-0 left-0 right-0 bg-[#fe9226] text-white text-center py-2 text-sm z-[60]">
         <div className="flex items-center justify-center gap-4 flex-wrap px-4">
