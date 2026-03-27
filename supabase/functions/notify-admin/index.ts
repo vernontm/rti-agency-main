@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "notifications@resend.dev";
+const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "RTI Agency <notifications@rti-agency.com>";
 const DASHBOARD_URL = Deno.env.get("DASHBOARD_URL") || "https://app.roadtoindependence.org";
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -148,9 +148,7 @@ async function getRecipientEmails(notificationType: string): Promise<string[]> {
     return [];
   }
 
-  // TODO: Remove override once a domain is verified in Resend
-  // return users.map((u: { email: string }) => u.email);
-  return ["ray@vernontm.com"];
+  return users.map((u: { email: string }) => u.email);
 }
 
 // ---------- Notification builders ----------
