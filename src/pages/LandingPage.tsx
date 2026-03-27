@@ -310,8 +310,16 @@ const LandingPage = () => {
           </div>
         </section>
 
+        {/* Slant divider: hero → mission */}
+        <div className="relative h-20 -mt-1 bg-white">
+          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <polygon points="0,0 1440,80 0,80" fill="white" />
+            <polygon points="0,0 1440,0 1440,80" fill="#003d5c" />
+          </svg>
+        </div>
+
         {/* Stats / Mission Band */}
-        <section className="relative bg-white py-20 border-b border-gray-100" aria-label="Our mission">
+        <section className="relative bg-white py-20" aria-label="Our mission">
           <div className="max-w-[1280px] mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="animate-on-scroll-in">
@@ -323,7 +331,7 @@ const LandingPage = () => {
                   We empower individuals with developmental disabilities to live fuller, more independent lives through personalized care, professional support, and a commitment to dignity and respect.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-5-in">
+              <div className="grid grid-cols-2 gap-5">
                 {[
                   { icon: Heart, label: 'Personalized Care', value: 'Client-First' },
                   { icon: Shield, label: 'Certified Staff', value: 'CPR & First Aid' },
@@ -340,6 +348,14 @@ const LandingPage = () => {
             </div>
           </div>
         </section>
+
+        {/* Slant divider: mission → promise */}
+        <div className="relative h-20 -mt-1">
+          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <polygon points="0,0 1440,0 0,80" fill="white" />
+            <polygon points="1440,0 1440,80 0,80" fill="#f0f4f8" />
+          </svg>
+        </div>
 
         {/* Promise / About Section */}
         <section id="about" className="py-24 bg-[#f0f4f8] relative overflow-hidden" aria-labelledby="promise-heading">
@@ -414,6 +430,14 @@ const LandingPage = () => {
             </div>
           </div>
         </section>
+
+        {/* Slant divider: promise → services */}
+        <div className="relative h-20 -mt-1">
+          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <polygon points="0,0 1440,80 1440,0" fill="#f0f4f8" />
+            <polygon points="0,0 0,80 1440,80" fill="#003d5c" />
+          </svg>
+        </div>
 
         {/* Services Section */}
         <section id="services" className="py-24 bg-[#003d5c] relative overflow-hidden" aria-labelledby="services-heading">
@@ -560,6 +584,14 @@ const LandingPage = () => {
             </div>
           </div>
         </section>
+
+        {/* Slant divider: services → FAQ */}
+        <div className="relative h-20 -mt-1">
+          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 1440 80" preserveAspectRatio="none">
+            <polygon points="0,0 1440,0 0,80" fill="#003d5c" />
+            <polygon points="1440,0 1440,80 0,80" fill="white" />
+          </svg>
+        </div>
 
         {/* FAQ Section */}
         <section id="faq" className="py-24 bg-white" aria-labelledby="faq-heading">
