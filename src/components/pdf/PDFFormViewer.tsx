@@ -71,9 +71,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
       await new Promise(resolve => requestAnimationFrame(resolve))
 
       const page = await pdfDoc.getPage(1)
-      // Use rotation: 0 to render PDF content as-is (avoids upside-down rendering
-      // from incorrect page.rotate metadata in scanned PDFs)
-      const viewport = page.getViewport({ scale: 1, rotation: 0 })
+      const viewport = page.getViewport({ scale: 1, rotation: page.rotate })
       const containerWidth = viewer.clientWidth - 48 // Account for padding
       if (containerWidth <= 0) return
       const newScale = containerWidth / viewport.width
@@ -100,8 +98,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
         if (!canvas) continue
 
         const page = await pdfDoc.getPage(pageNum)
-        // Use rotation: 0 to render content as-is — matches how fields are positioned in the builder
-        const viewport = page.getViewport({ scale, rotation: 0 })
+        const viewport = page.getViewport({ scale, rotation: page.rotate })
         const context = canvas.getContext('2d')!
 
         canvas.height = viewport.height
