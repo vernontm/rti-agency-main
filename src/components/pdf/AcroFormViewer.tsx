@@ -39,6 +39,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
   const [totalPages, setTotalPages] = useState(0)
   const [scale, setScale] = useState(1.2)
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }[]>([])
+  const [pageViewports, setPageViewports] = useState<pdfjsLib.PageViewport[]>([])
   const [annotationFields, setAnnotationFields] = useState<AnnotationField[]>([])
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -92,12 +93,14 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
     if (!pdfDoc || totalPages === 0) return
     const extract = async () => {
       const dims: { width: number; height: number }[] = []
+      const viewports: pdfjsLib.PageViewport[] = []
       const fields: AnnotationField[] = []
 
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
         const page = await pdfDoc.getPage(pageNum)
         const viewport = page.getViewport({ scale })
         dims.push({ width: viewport.width, height: viewport.height })
+        viewports.push(viewport)
 
         const annotations = await page.getAnnotations()
         for (const ann of annotations) {
@@ -119,6 +122,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
       }
 
       setPageDimensions(dims)
+      setPageViewports(viewports)
       setAnnotationFields(fields)
 
       // Set default values
@@ -167,18 +171,17 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
     setValues(prev => ({ ...prev, [fieldName]: value }))
   }
 
-  // Convert PDF rect [x1, y1, x2, y2] (bottom-left origin) to CSS position (top-left origin)
+  // Convert PDF rect to CSS position using viewport's built-in transform (handles rotation)
   const rectToStyle = (rect: number[], pageNum: number) => {
-    const dim = pageDimensions[pageNum - 1]
-    if (!dim) return {}
+    const viewport = pageViewports[pageNum - 1]
+    if (!viewport) return {}
 
-    const page1Viewport = scale // we use scale directly since viewport = page * scale
-    const [x1, y1, x2, y2] = rect
-    const left = x1 * scale
-    const bottom = y1 * scale
-    const width = (x2 - x1) * scale
-    const height = (y2 - y1) * scale
-    const top = dim.height - bottom - height
+    // convertToViewportRectangle handles rotation + scale via the full transform matrix
+    const [vx1, vy1, vx2, vy2] = viewport.convertToViewportRectangle(rect)
+    const left = Math.min(vx1, vx2)
+    const top = Math.min(vy1, vy2)
+    const width = Math.abs(vx2 - vx1)
+    const height = Math.abs(vy2 - vy1)
 
     return {
       left: Math.max(0, left),
