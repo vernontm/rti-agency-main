@@ -179,10 +179,25 @@ export async function generateAcroFilledPDF(
     }
   }
 
+  // Build a lookup: pdf-lib field names may be fully qualified (e.g., "Form1.Name")
+  // while pdf.js annotations return partial names (e.g., "Name"). Try exact match first,
+  // then fall back to partial/suffix match.
+  const findValue = (name: string): string | boolean | undefined => {
+    if (values[name] !== undefined) return values[name]
+    // Try matching the last segment of a dotted name
+    const lastSegment = name.split('.').pop()
+    if (lastSegment && values[lastSegment] !== undefined) return values[lastSegment]
+    // Try finding a value key that ends with this field name
+    for (const key of Object.keys(values)) {
+      if (key.endsWith(`.${name}`) || name.endsWith(`.${key}`)) return values[key]
+    }
+    return undefined
+  }
+
   // Fill AcroForm fields from collected values
   for (const field of allFields) {
     const name = field.getName()
-    const value = values[name]
+    const value = findValue(name)
 
     if (value === undefined || value === null || value === '') continue
 
@@ -212,7 +227,7 @@ export async function generateAcroFilledPDF(
   if (values['_signature_text']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (/sig/i.test(name) && !values[name] && field.constructor.name === 'PDFTextField') {
+      if (/sig/i.test(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
         try {
           const tf = form.getTextField(name)
           tf.setText(values['_signature_text'] as string)
@@ -228,7 +243,7 @@ export async function generateAcroFilledPDF(
   if (values['_signature_date']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (/date/i.test(name) && !values[name] && field.constructor.name === 'PDFTextField') {
+      if (/date/i.test(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
         try {
           const tf = form.getTextField(name)
           tf.setText(values['_signature_date'] as string)

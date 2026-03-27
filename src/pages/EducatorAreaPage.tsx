@@ -299,7 +299,7 @@ const EducatorAreaPage = () => {
                           {isPdfForm ? 'PDF Form' : 'Digital Form'}
                         </p>
                         <div className="mt-3 flex gap-2">
-                          {isPdfForm && pdfUrl && schema.fields ? (
+                          {isPdfForm && pdfUrl && (schema.fields || schema.acroForm) ? (
                             <Button
                               size="sm"
                               onClick={() => setSelectedForm(form)}
