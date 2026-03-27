@@ -22,6 +22,7 @@ export interface PDFFormField {
   height: number
   page: number
   required: boolean
+  acroFieldName?: string // Maps to native PDF AcroForm field name for direct filling
 }
 
 interface PDFFormBuilderProps {

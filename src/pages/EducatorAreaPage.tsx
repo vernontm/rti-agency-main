@@ -20,6 +20,7 @@ interface Form {
     pdfUrl?: string
     fields?: PDFFormField[]
     pdfRotation?: number
+    acroForm?: boolean
   }
 }
 
@@ -128,7 +129,8 @@ const EducatorAreaPage = () => {
       const pdfBytes = await generateFilledPDF(
         pdfUrl!,
         schema.fields!,
-        values
+        values,
+        schema.acroForm
       )
       const pdfBlob = uint8ArrayToBlob(pdfBytes)
 
