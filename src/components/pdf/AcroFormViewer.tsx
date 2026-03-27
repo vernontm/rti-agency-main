@@ -1,9 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { AnnotationLayer } from 'pdfjs-dist'
-import 'pdfjs-dist/web/pdf_viewer.css'
 import Button from '../ui/Button'
-import { Send, Download } from 'lucide-react'
+import { Send } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // Set worker path
@@ -16,6 +14,19 @@ const signatureFonts = [
   { name: 'Modern', fontFamily: "'Pacifico', cursive" },
 ]
 
+interface AnnotationField {
+  id: string
+  fieldName: string
+  fieldType: string // 'Tx', 'Btn', 'Ch', 'Sig'
+  subtype: string
+  rect: number[] // [x1, y1, x2, y2] in PDF coordinates
+  page: number
+  checkBox?: boolean
+  radioButton?: boolean
+  multiLine?: boolean
+  defaultValue?: string
+}
+
 interface AcroFormViewerProps {
   pdfUrl: string
   formName: string
@@ -27,26 +38,25 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [totalPages, setTotalPages] = useState(0)
   const [scale, setScale] = useState(1.2)
+  const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }[]>([])
+  const [annotationFields, setAnnotationFields] = useState<AnnotationField[]>([])
+  const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [submitting, setSubmitting] = useState(false)
   const [signatureText, setSignatureText] = useState('')
   const [signatureFont, setSignatureFont] = useState(signatureFonts[0].fontFamily)
   const [signatureDate, setSignatureDate] = useState(new Date().toISOString().split('T')[0])
   const [printName, setPrintName] = useState('')
 
-  const containerRef = useRef<HTMLDivElement>(null)
   const viewerRef = useRef<HTMLDivElement>(null)
-  const pageRefs = useRef<HTMLDivElement[]>([])
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([])
-  const annotationLayerRefs = useRef<HTMLDivElement[]>([])
+  const renderGenRef = useRef(0)
 
   // Load PDF
   useEffect(() => {
     if (!pdfUrl) return
-
     const loadPdf = async () => {
       try {
-        const loadingTask = pdfjsLib.getDocument(pdfUrl)
-        const pdf = await loadingTask.promise
+        const pdf = await pdfjsLib.getDocument(pdfUrl).promise
         setPdfDoc(pdf)
         setTotalPages(pdf.numPages)
       } catch (error) {
@@ -54,20 +64,16 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
         toast.error('Failed to load PDF')
       }
     }
-
     loadPdf()
   }, [pdfUrl])
 
   // Calculate scale to fit width
   useEffect(() => {
     if (!pdfDoc || !viewerRef.current || totalPages === 0) return
-
     const calculateFitScale = async () => {
       const viewer = viewerRef.current
       if (!viewer) return
-
       await new Promise(resolve => requestAnimationFrame(resolve))
-
       const page = await pdfDoc.getPage(1)
       const viewport = page.getViewport({ scale: 1 })
       const containerWidth = viewer.clientWidth - 48
@@ -75,143 +81,131 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
       const newScale = containerWidth / viewport.width
       setScale(Math.min(Math.max(newScale, 0.5), 2.5))
     }
-
     calculateFitScale()
-
     const handleResize = () => calculateFitScale()
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [pdfDoc, totalPages])
 
-  // Render pages with annotation layer
+  // Extract annotation fields and calculate dimensions
   useEffect(() => {
     if (!pdfDoc || totalPages === 0) return
+    const extract = async () => {
+      const dims: { width: number; height: number }[] = []
+      const fields: AnnotationField[] = []
 
+      for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum)
+        const viewport = page.getViewport({ scale })
+        dims.push({ width: viewport.width, height: viewport.height })
+
+        const annotations = await page.getAnnotations()
+        for (const ann of annotations) {
+          if (ann.subtype === 'Widget' && ann.fieldName) {
+            fields.push({
+              id: ann.id,
+              fieldName: ann.fieldName,
+              fieldType: ann.fieldType || 'Tx',
+              subtype: ann.subtype,
+              rect: ann.rect,
+              page: pageNum,
+              checkBox: ann.checkBox,
+              radioButton: ann.radioButton,
+              multiLine: ann.multiLine,
+              defaultValue: ann.fieldValue,
+            })
+          }
+        }
+      }
+
+      setPageDimensions(dims)
+      setAnnotationFields(fields)
+
+      // Set default values
+      const defaults: Record<string, string | boolean> = {}
+      for (const f of fields) {
+        if (f.defaultValue) {
+          if (f.checkBox) {
+            defaults[f.fieldName] = f.defaultValue === 'Yes'
+          } else {
+            defaults[f.fieldName] = f.defaultValue
+          }
+        }
+      }
+      setValues(prev => ({ ...defaults, ...prev }))
+    }
+    extract()
+  }, [pdfDoc, totalPages, scale])
+
+  // Render pages to canvas
+  useEffect(() => {
+    if (!pdfDoc || totalPages === 0) return
+    const generation = ++renderGenRef.current
     const renderPages = async () => {
       for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+        if (renderGenRef.current !== generation) return
         const canvas = canvasRefs.current[pageNum - 1]
-        const annotationDiv = annotationLayerRefs.current[pageNum - 1]
-        if (!canvas || !annotationDiv) continue
-
+        if (!canvas) continue
         const page = await pdfDoc.getPage(pageNum)
         const viewport = page.getViewport({ scale })
         const context = canvas.getContext('2d')!
-
         canvas.height = viewport.height
         canvas.width = viewport.width
-
-        // Render the page content to canvas
-        await page.render({
-          canvasContext: context,
-          viewport,
-        } as any).promise
-
-        // Clear previous annotation layer content
-        annotationDiv.innerHTML = ''
-        annotationDiv.style.width = `${viewport.width}px`
-        annotationDiv.style.height = `${viewport.height}px`
-
-        // Render annotation layer with form fields
-        const annotations = await page.getAnnotations()
-
-        if (annotations.length > 0) {
-          const annotationLayer = new AnnotationLayer({
-            div: annotationDiv,
-            page,
-            viewport,
-            accessibilityManager: null,
-            annotationCanvasMap: null,
-            annotationEditorUIManager: null,
-            structTreeLayer: null,
-            commentManager: null,
-            linkService: {
-              getDestinationHash: () => '#',
-              getAnchorUrl: () => '#',
-              addLinkAttributes: () => {},
-              isPageVisible: () => true,
-              isPageCached: () => true,
-              goToDestination: () => {},
-              goToPage: () => {},
-              navigateTo: () => {},
-              getKeyboardFocusableElement: () => null,
-            } as any,
-            annotationStorage: pdfDoc.annotationStorage,
-          } as any)
-
-          await annotationLayer.render({
-            viewport,
-            div: annotationDiv,
-            annotations,
-            page,
-            linkService: {
-              getDestinationHash: () => '#',
-              getAnchorUrl: () => '#',
-              addLinkAttributes: () => {},
-              isPageVisible: () => true,
-              isPageCached: () => true,
-              goToDestination: () => {},
-              goToPage: () => {},
-              navigateTo: () => {},
-              getKeyboardFocusableElement: () => null,
-            } as any,
-            renderForms: !readOnly,
-          } as any)
+        if (renderGenRef.current !== generation) return
+        try {
+          await page.render({ canvasContext: context, viewport } as any).promise
+        } catch (e: any) {
+          if (e?.name === 'RenderingCancelledException') return
+          throw e
         }
       }
     }
-
     renderPages()
-  }, [pdfDoc, totalPages, scale, readOnly])
+  }, [pdfDoc, totalPages, scale])
 
-  // Collect values from annotation layer inputs
-  const collectFormValues = useCallback((): Record<string, string | boolean> => {
-    const values: Record<string, string | boolean> = {}
+  const handleValueChange = (fieldName: string, value: string | boolean) => {
+    setValues(prev => ({ ...prev, [fieldName]: value }))
+  }
 
-    // Collect from annotation storage
-    if (pdfDoc) {
-      const storage = pdfDoc.annotationStorage
-      // Get all annotation layer inputs
-      annotationLayerRefs.current.forEach(div => {
-        if (!div) return
-        const inputs = div.querySelectorAll('input, textarea, select')
-        inputs.forEach((el: Element) => {
-          const input = el as HTMLInputElement
-          const name = input.name || input.id
-          if (!name) return
+  // Convert PDF rect [x1, y1, x2, y2] (bottom-left origin) to CSS position (top-left origin)
+  const rectToStyle = (rect: number[], pageNum: number) => {
+    const dim = pageDimensions[pageNum - 1]
+    if (!dim) return {}
 
-          if (input.type === 'checkbox' || input.type === 'radio') {
-            if (input.checked) {
-              values[name] = true
-            }
-          } else {
-            if (input.value) {
-              values[name] = input.value
-            }
-          }
-        })
-      })
+    const page1Viewport = scale // we use scale directly since viewport = page * scale
+    const [x1, y1, x2, y2] = rect
+    const left = x1 * scale
+    const bottom = y1 * scale
+    const width = (x2 - x1) * scale
+    const height = (y2 - y1) * scale
+    const top = dim.height - bottom - height
+
+    return {
+      left: Math.max(0, left),
+      top: Math.max(0, top),
+      width: Math.max(12, width),
+      height: Math.max(12, height),
     }
+  }
+
+  const handleSubmit = async () => {
+    const allValues: Record<string, string | boolean> = { ...values }
 
     // Add signature fields
     if (signatureText) {
-      values['_signature_text'] = signatureText
-      values['_signature_font'] = signatureFont
+      allValues['_signature_text'] = signatureText
+      allValues['_signature_font'] = signatureFont
     }
     if (signatureDate) {
-      values['_signature_date'] = signatureDate
+      allValues['_signature_date'] = signatureDate
     }
     if (printName) {
-      values['_print_name'] = printName
+      allValues['_print_name'] = printName
     }
 
-    return values
-  }, [pdfDoc, signatureText, signatureFont, signatureDate, printName])
-
-  const handleSubmit = async () => {
-    const values = collectFormValues()
     setSubmitting(true)
     try {
-      await onSubmit(values)
+      await onSubmit(allValues)
     } finally {
       setSubmitting(false)
     }
@@ -222,32 +216,87 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
       {/* Header */}
       <div className="flex items-center justify-between mb-4 bg-white p-3 rounded-lg shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">{formName}</h2>
-        <span className="text-sm text-gray-500">{totalPages} page{totalPages !== 1 ? 's' : ''}</span>
+        <span className="text-sm text-gray-500">
+          {totalPages} page{totalPages !== 1 ? 's' : ''} &middot; {annotationFields.length} fields
+        </span>
       </div>
 
-      {/* PDF Viewer with Annotation Layer */}
+      {/* PDF Viewer */}
       <div ref={viewerRef} className="flex-1 overflow-auto bg-gray-100 rounded-lg p-6">
-        <div
-          ref={containerRef}
-          className="mx-auto space-y-4"
-          style={{ width: 'fit-content', maxWidth: '100%' }}
-        >
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-            <div
-              key={pageNum}
-              ref={(el) => { if (el) pageRefs.current[pageNum - 1] = el }}
-              className="relative shadow-lg bg-white"
-            >
-              <canvas
-                ref={(el) => { canvasRefs.current[pageNum - 1] = el }}
-                className="block"
-              />
+        <div className="mx-auto space-y-4" style={{ width: 'fit-content', maxWidth: '100%' }}>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+            const dim = pageDimensions[pageNum - 1]
+            const pageFields = annotationFields.filter(f => f.page === pageNum)
+            return (
               <div
-                ref={(el) => { if (el) annotationLayerRefs.current[pageNum - 1] = el }}
-                className="annotationLayer absolute top-0 left-0"
-              />
-            </div>
-          ))}
+                key={pageNum}
+                className="relative"
+                style={dim ? { width: dim.width, height: dim.height } : undefined}
+              >
+                <canvas
+                  ref={(el) => { canvasRefs.current[pageNum - 1] = el }}
+                  className="shadow-lg block"
+                  style={dim ? { width: dim.width, height: dim.height } : undefined}
+                />
+                {/* AcroForm field overlays */}
+                {dim && pageFields.map((field) => {
+                  const style = rectToStyle(field.rect, pageNum)
+                  const val = values[field.fieldName]
+
+                  if (field.checkBox) {
+                    return (
+                      <div
+                        key={field.id}
+                        className="absolute flex items-center justify-center"
+                        style={style}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!val}
+                          onChange={(e) => handleValueChange(field.fieldName, e.target.checked)}
+                          disabled={readOnly}
+                          className="w-full h-full cursor-pointer accent-blue-600"
+                        />
+                      </div>
+                    )
+                  }
+
+                  if (field.multiLine) {
+                    return (
+                      <textarea
+                        key={field.id}
+                        value={(val as string) || ''}
+                        onChange={(e) => handleValueChange(field.fieldName, e.target.value)}
+                        disabled={readOnly}
+                        className="absolute px-1 text-xs bg-blue-50/70 border border-blue-200 rounded-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white/90"
+                        style={{
+                          ...style,
+                          fontSize: Math.min((style.height as number) * 0.6, 11),
+                        }}
+                      />
+                    )
+                  }
+
+                  // Default: text input
+                  return (
+                    <input
+                      key={field.id}
+                      type="text"
+                      value={(val as string) || ''}
+                      onChange={(e) => handleValueChange(field.fieldName, e.target.value)}
+                      disabled={readOnly}
+                      className="absolute px-1 bg-blue-50/70 border border-blue-200 rounded-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white/90"
+                      style={{
+                        ...style,
+                        fontSize: Math.min((style.height as number) * 0.65, 11),
+                        lineHeight: 1,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -311,7 +360,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
             </div>
           </div>
 
-          {/* Preview */}
+          {/* Signature Preview */}
           {signatureText && (
             <div className="p-3 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <p className="text-xs text-gray-500 mb-1">Signature Preview</p>
