@@ -4,8 +4,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, Menu, X, Phone, MapPin, Mail, C
 import SitePopup from '../components/SitePopup'
 
 const SUPABASE_STORAGE = 'https://gtfwrcapxsksxkvulull.supabase.co/storage/v1/object/public/website-images'
-// TODO: Upload RTI-logo.png to Supabase storage to fix logo
-const RTI_LOGO = 'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/logos/RTI-logo.png'
+const RTI_LOGO = `${SUPABASE_STORAGE}/rti-logo.png`
 const HERO_SLIDES = [
   `${SUPABASE_STORAGE}/caregiver-client.png`,
   `${SUPABASE_STORAGE}/staff-team.png`
