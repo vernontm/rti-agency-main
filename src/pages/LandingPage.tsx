@@ -11,7 +11,6 @@ const HERO_SLIDES = [
   `${SUPABASE_STORAGE}/staff-team.png`
 ]
 const STAFF_IMAGES = [
-  `${SUPABASE_STORAGE}/caregiver-client.png`,
   `${SUPABASE_STORAGE}/staff-team.png`
 ]
 
