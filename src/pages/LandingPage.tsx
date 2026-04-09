@@ -7,7 +7,7 @@ const SUPABASE_STORAGE = 'https://gtfwrcapxsksxkvulull.supabase.co/storage/v1/ob
 const RTI_LOGO = `${SUPABASE_STORAGE}/rti-logo.png`
 const HERO_SLIDES = [
   `${SUPABASE_STORAGE}/caregiver-client.png`,
-  `${SUPABASE_STORAGE}/staff-team.png`
+  `${SUPABASE_STORAGE}/rti-staff.png`
 ]
 const STAFF_IMAGES = [
   `${SUPABASE_STORAGE}/staff-team.png`
