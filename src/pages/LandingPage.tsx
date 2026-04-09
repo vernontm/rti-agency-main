@@ -3,14 +3,16 @@ import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, ChevronDown, Menu, X, Phone, MapPin, Mail, Clock, Heart, Shield, Users, Home, ArrowRight } from 'lucide-react'
 import SitePopup from '../components/SitePopup'
 
+const SUPABASE_STORAGE = 'https://gtfwrcapxsksxkvulull.supabase.co/storage/v1/object/public/website-images'
+// TODO: Upload RTI-logo.png to Supabase storage to fix logo
 const RTI_LOGO = 'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/logos/RTI-logo.png'
 const HERO_SLIDES = [
-  'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/website-images/slider-1.png',
-  'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/website-images/slider-2.png'
+  `${SUPABASE_STORAGE}/caregiver-client.png`,
+  `${SUPABASE_STORAGE}/staff-team.png`
 ]
 const STAFF_IMAGES = [
-  'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/website-images/staff-1.jpeg',
-  'https://vernon-tech-media.s3.us-east-1.amazonaws.com/RTI-agency/website-images/staff-2.png'
+  `${SUPABASE_STORAGE}/caregiver-client.png`,
+  `${SUPABASE_STORAGE}/staff-team.png`
 ]
 
 const FAQ_DATA = [
