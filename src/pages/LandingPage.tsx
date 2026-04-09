@@ -10,7 +10,7 @@ const HERO_SLIDES = [
   `${SUPABASE_STORAGE}/rti-staff.png`
 ]
 const STAFF_IMAGES = [
-  `${SUPABASE_STORAGE}/staff-team.png`
+  `${SUPABASE_STORAGE}/rti-staff.png`
 ]
 
 const FAQ_DATA = [
