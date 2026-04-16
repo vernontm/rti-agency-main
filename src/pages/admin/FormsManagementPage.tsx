@@ -10,7 +10,9 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormBuilder from '../../components/pdf/PDFFormBuilder'
+import AcroFormViewer from '../../components/pdf/AcroFormViewer'
 import type { PDFFormField } from '../../components/pdf/PDFFormBuilder'
+import { generateAcroFilledPDF, uint8ArrayToBlob } from '../../utils/pdfGenerator'
 import type { FormStatus } from '../../types/database.types'
 
 interface Form {
@@ -75,6 +77,7 @@ const FormsManagementPage = () => {
   const [showBuilder, setShowBuilder] = useState(false)
   const [selectedForm, setSelectedForm] = useState<Form | null>(null)
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null)
+  const [showManagerSign, setShowManagerSign] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -202,6 +205,79 @@ const FormsManagementPage = () => {
     }
   }
 
+  // Manager sign & approve: re-generate PDF with manager signature, then approve
+  const handleManagerSignAndApprove = async (managerValues: Record<string, string | boolean>) => {
+    if (!selectedSubmission) return
+
+    // Find the form template for this submission
+    const form = forms.find(f => f.id === selectedSubmission.form_id)
+    if (!form) {
+      toast.error('Form template not found')
+      return
+    }
+
+    const pdfUrl = form.fields_schema.pdfUrl || form.fields_schema.pdf_url
+    if (!pdfUrl) {
+      toast.error('No PDF template URL')
+      return
+    }
+
+    try {
+      toast.loading('Generating approved document with manager signature...', { id: 'mgr-sign' })
+
+      // Merge employee submission data with manager signature values
+      const allValues: Record<string, string | boolean> = {
+        ...(selectedSubmission.data as Record<string, string | boolean>),
+        ...managerValues,
+        // Mark "Approved" checkbox
+        Approved: true,
+      }
+
+      // Generate the PDF with both employee and manager data
+      const pdfBytes = await generateAcroFilledPDF(pdfUrl, allValues)
+      const pdfBlob = uint8ArrayToBlob(pdfBytes)
+
+      // Upload the new signed PDF
+      const fileName = `submissions/${Date.now()}_${form.form_name.replace(/\s+/g, '_')}_approved.pdf`
+      const { error: uploadError } = await supabase.storage.from('forms').upload(fileName, pdfBlob)
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage.from('forms').getPublicUrl(fileName)
+
+      // Delete old signed PDF from storage if it exists
+      if (selectedSubmission.signed_pdf_url) {
+        const urlParts = selectedSubmission.signed_pdf_url.split('/forms/')
+        if (urlParts.length > 1) {
+          await supabase.storage.from('forms').remove([urlParts[1]]).catch(() => {})
+        }
+      }
+
+      // Update submission: approve + new signed PDF
+      const { error } = await supabase
+        .from('form_submissions')
+        .update({
+          status: 'approved',
+          reviewed_by: profile?.id,
+          reviewed_at: new Date().toISOString(),
+          signed_pdf_url: publicUrl,
+          data: allValues,
+        })
+        .eq('id', selectedSubmission.id)
+
+      if (error) throw error
+
+      toast.dismiss('mgr-sign')
+      toast.success('Form approved with manager signature!')
+      setSelectedSubmission(null)
+      setShowManagerSign(false)
+      fetchData()
+    } catch (error) {
+      toast.dismiss('mgr-sign')
+      console.error('Error signing and approving:', error)
+      toast.error('Failed to sign and approve')
+    }
+  }
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
     const now = new Date()
@@ -241,6 +317,47 @@ const FormsManagementPage = () => {
         </div>
         <div className="flex-1 overflow-y-auto p-6">
           <PDFFormBuilder onSave={handleSaveForm} />
+        </div>
+      </div>
+    )
+  }
+
+  // --- Manager sign & approve view ---
+  if (selectedSubmission && showManagerSign) {
+    const form = forms.find(f => f.id === selectedSubmission.form_id)
+    const pdfUrl = form?.fields_schema.pdfUrl || form?.fields_schema.pdf_url
+
+    return (
+      <div className="-m-6 h-screen flex flex-col bg-white">
+        <div className="flex items-center gap-4 px-6 py-4 border-b">
+          <button
+            onClick={() => setShowManagerSign(false)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Back to submission"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Sign & Approve</h1>
+            <p className="text-sm text-gray-500">
+              {selectedSubmission.forms?.form_name} — submitted by {selectedSubmission.submitter?.full_name}
+            </p>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto p-6">
+          {pdfUrl ? (
+            <AcroFormViewer
+              pdfUrl={pdfUrl}
+              formName={selectedSubmission.forms?.form_name || 'Form'}
+              mode="manager-review"
+              initialValues={selectedSubmission.data as Record<string, string | boolean>}
+              onSubmit={handleManagerSignAndApprove}
+            />
+          ) : (
+            <div className="text-center text-gray-500 py-12">
+              <p>Form template not found. Cannot sign.</p>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -308,10 +425,16 @@ const FormsManagementPage = () => {
         {selectedSubmission.status === 'pending' && (
           <div className="px-6 py-4 border-t bg-gray-50 flex gap-3">
             <Button
-              onClick={() => handleStatusUpdate(selectedSubmission.id, 'approved')}
+              onClick={() => setShowManagerSign(true)}
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              Approve
+              Sign & Approve
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleStatusUpdate(selectedSubmission.id, 'approved')}
+            >
+              Approve Without Signing
             </Button>
             <Button
               variant="outline"

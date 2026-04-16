@@ -226,6 +226,7 @@ const EducatorAreaPage = () => {
             <AcroFormViewer
               pdfUrl={pdfUrl}
               formName={selectedForm.form_name}
+              mode="employee"
               onSubmit={handleFormSubmit}
             />
           ) : (

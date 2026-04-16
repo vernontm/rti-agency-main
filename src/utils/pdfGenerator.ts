@@ -227,11 +227,26 @@ export async function generateAcroFilledPDF(
     }
   }
 
-  // Fill signature into all sig fields if user provided one
+  // Helper to detect manager fields
+  const isManagerFieldName = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
+
+  // Load manager signature font if provided
+  const mgrSigFontCss = values['_manager_signature_font'] as string
+  let managerSigFont: Awaited<ReturnType<typeof pdfDoc.embedFont>> | null = null
+  if (mgrSigFontCss && fontFileMap[mgrSigFontCss]) {
+    try {
+      const fontBytes = await fetch(fontFileMap[mgrSigFontCss]).then(res => res.arrayBuffer())
+      managerSigFont = await pdfDoc.embedFont(fontBytes)
+    } catch (e) {
+      console.warn('Failed to load manager signature font:', e)
+    }
+  }
+
+  // Fill employee signature into non-manager sig fields
   if (values['_signature_text']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (/sig/i.test(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
+      if (/sig/i.test(name) && !isManagerFieldName(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
         try {
           const tf = form.getTextField(name)
           tf.setText(values['_signature_text'] as string)
@@ -243,16 +258,63 @@ export async function generateAcroFilledPDF(
     }
   }
 
-  // Fill date into date fields if user provided one
+  // Fill employee date into non-manager date fields
   if (values['_signature_date']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (/date/i.test(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
+      if (/date/i.test(name) && !isManagerFieldName(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
         try {
           const tf = form.getTextField(name)
           tf.setText(values['_signature_date'] as string)
         } catch (e) {
           // Field might already be filled
+        }
+      }
+    }
+  }
+
+  // Fill manager signature fields
+  if (values['_manager_signature_text']) {
+    for (const field of allFields) {
+      const name = field.getName()
+      if (isManagerFieldName(name) && /sig/i.test(name) && field.constructor.name === 'PDFTextField') {
+        try {
+          const tf = form.getTextField(name)
+          tf.setText(values['_manager_signature_text'] as string)
+          if (managerSigFont) tf.updateAppearances(managerSigFont)
+        } catch (e) {
+          console.warn(`Could not fill manager sig field "${name}":`, e)
+        }
+      }
+    }
+  }
+
+  // Fill manager date fields
+  if (values['_manager_signature_date']) {
+    for (const field of allFields) {
+      const name = field.getName()
+      if (isManagerFieldName(name) && /date/i.test(name) && field.constructor.name === 'PDFTextField') {
+        try {
+          const tf = form.getTextField(name)
+          tf.setText(values['_manager_signature_date'] as string)
+        } catch (e) {
+          console.warn(`Could not fill manager date field "${name}":`, e)
+        }
+      }
+    }
+  }
+
+  // Fill manager approved/rejected checkbox fields
+  for (const field of allFields) {
+    const name = field.getName()
+    if (isManagerFieldName(name) || /approved/i.test(name) || /rejected/i.test(name)) {
+      const val = findValue(name)
+      if (val !== undefined && field.constructor.name === 'PDFCheckBox') {
+        try {
+          const cb = form.getCheckBox(name)
+          if (val === true || val === 'true') cb.check()
+        } catch (e) {
+          // ignore
         }
       }
     }
