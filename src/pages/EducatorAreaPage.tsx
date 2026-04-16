@@ -194,8 +194,9 @@ const EducatorAreaPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -212,6 +213,7 @@ const EducatorAreaPage = () => {
             <button
               onClick={() => setSelectedForm(null)}
               className="p-2 hover:bg-gray-100 rounded-lg"
+              aria-label="Close form"
             >
               <X className="w-5 h-5" />
             </button>
@@ -248,8 +250,13 @@ const EducatorAreaPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b">
+      <div className="flex gap-4 border-b" role="tablist" aria-label="Educator Area">
         <button
+          id="educator-tab-forms"
+          role="tab"
+          aria-selected={activeTab === 'forms'}
+          aria-controls="educator-tabpanel-forms"
+          tabIndex={activeTab === 'forms' ? 0 : -1}
           onClick={() => setActiveTab('forms')}
           className={`pb-3 px-1 font-medium ${
             activeTab === 'forms'
@@ -260,6 +267,11 @@ const EducatorAreaPage = () => {
           Available Forms ({forms.length})
         </button>
         <button
+          id="educator-tab-submissions"
+          role="tab"
+          aria-selected={activeTab === 'submissions'}
+          aria-controls="educator-tabpanel-submissions"
+          tabIndex={activeTab === 'submissions' ? 0 : -1}
           onClick={() => setActiveTab('submissions')}
           className={`pb-3 px-1 font-medium ${
             activeTab === 'submissions'
@@ -273,7 +285,7 @@ const EducatorAreaPage = () => {
 
       {/* Forms Tab */}
       {activeTab === 'forms' && (
-        <>
+        <div role="tabpanel" id="educator-tabpanel-forms" aria-labelledby="educator-tab-forms">
           {forms.length === 0 ? (
             <Card className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -328,12 +340,12 @@ const EducatorAreaPage = () => {
               })}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {/* Submissions Tab */}
       {activeTab === 'submissions' && (
-        <>
+        <div role="tabpanel" id="educator-tabpanel-submissions" aria-labelledby="educator-tab-submissions">
           {submissions.length === 0 ? (
             <Card className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -376,6 +388,7 @@ const EducatorAreaPage = () => {
                           onClick={() => handleDeleteSubmission(submission.id, submission.signed_pdf_url)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Delete submission"
+                          aria-label="Delete submission"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -393,7 +406,7 @@ const EducatorAreaPage = () => {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   )

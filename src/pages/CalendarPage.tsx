@@ -214,6 +214,11 @@ const CalendarPage = () => {
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+  const getFullDateLabel = (day: number) => {
+    const date = new Date(year, month, day)
+    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  }
+
   const colorOptions = [
     { value: 'blue', bg: 'bg-blue-500', light: 'bg-blue-100 text-blue-800' },
     { value: 'orange', bg: 'bg-orange-500', light: 'bg-orange-100 text-orange-800' },
@@ -250,12 +255,14 @@ const CalendarPage = () => {
               <button
                 onClick={prevMonth}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Previous month"
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
               <button
                 onClick={nextMonth}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Next month"
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
@@ -304,11 +311,21 @@ const CalendarPage = () => {
             return (
               <div
                 key={day}
+                role="button"
+                tabIndex={0}
+                aria-label={getFullDateLabel(day)}
                 className={`min-h-[120px] border-b border-r border-gray-100 p-2 transition-colors hover:bg-blue-50/50 cursor-pointer ${
                   isTodayDate ? 'bg-blue-50' : 'bg-white'
                 }`}
                 onClick={() => {
                   if (isAdmin) {
+                    setSelectedDate(dateString)
+                    setShowNoteModal(true)
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && isAdmin) {
+                    e.preventDefault()
                     setSelectedDate(dateString)
                     setShowNoteModal(true)
                   }
@@ -333,6 +350,7 @@ const CalendarPage = () => {
                         setShowNoteModal(true)
                       }}
                       className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Add note"
                     >
                       <Plus className="w-4 h-4 text-gray-400" />
                     </button>
@@ -364,6 +382,7 @@ const CalendarPage = () => {
                               handleDeleteNote(note.id)
                             }}
                             className="ml-1 hover:text-red-600"
+                            aria-label="Delete note"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -403,10 +422,10 @@ const CalendarPage = () => {
 
       {/* Add Note Modal */}
       {showNoteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => e.key === 'Escape' && setShowNoteModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 id="note-modal-title" className="text-lg font-semibold text-gray-900">
                 Add Note - {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'long',
@@ -416,6 +435,7 @@ const CalendarPage = () => {
               <button
                 onClick={() => setShowNoteModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-full"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -457,6 +477,7 @@ const CalendarPage = () => {
                     <button
                       key={color.value}
                       onClick={() => setNoteColor(color.value)}
+                      aria-label={`Select ${color.value} color`}
                       className={`w-8 h-8 rounded-full ${color.bg} ${
                         noteColor === color.value
                           ? 'ring-2 ring-offset-2 ring-gray-400'

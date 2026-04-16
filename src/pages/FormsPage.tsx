@@ -125,8 +125,9 @@ const FormsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -174,6 +175,7 @@ const FormsPage = () => {
               <button
                 onClick={() => setSelectedForm(null)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close form"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -269,8 +271,13 @@ const FormsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b">
+      <div className="flex gap-4 border-b" role="tablist" aria-label="Forms">
         <button
+          id="forms-tab-available"
+          role="tab"
+          aria-selected={activeTab === 'available'}
+          aria-controls="forms-tabpanel-available"
+          tabIndex={activeTab === 'available' ? 0 : -1}
           onClick={() => setActiveTab('available')}
           className={`pb-3 px-1 font-medium ${
             activeTab === 'available'
@@ -281,6 +288,11 @@ const FormsPage = () => {
           Available Forms ({availableForms.length})
         </button>
         <button
+          id="forms-tab-submissions"
+          role="tab"
+          aria-selected={activeTab === 'submissions'}
+          aria-controls="forms-tabpanel-submissions"
+          tabIndex={activeTab === 'submissions' ? 0 : -1}
           onClick={() => setActiveTab('submissions')}
           className={`pb-3 px-1 font-medium ${
             activeTab === 'submissions'
@@ -294,7 +306,7 @@ const FormsPage = () => {
 
       {/* Available Forms Tab */}
       {activeTab === 'available' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div role="tabpanel" id="forms-tabpanel-available" aria-labelledby="forms-tab-available" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {availableForms.map((form) => {
             const schema = form.fields_schema as FormSchema
             const isPdfForm = schema?.type === 'pdf'
@@ -337,7 +349,7 @@ const FormsPage = () => {
 
       {/* Submissions Tab */}
       {activeTab === 'submissions' && (
-        <Card>
+        <Card role="tabpanel" id="forms-tabpanel-submissions" aria-labelledby="forms-tab-submissions">
           <div className="flex items-center gap-4 mb-6">
             <div className="flex items-center gap-2">
               <Filter className="w-5 h-5 text-gray-400" />
@@ -405,11 +417,11 @@ const FormsPage = () => {
         if (isPdfSubmission) {
           const signedPdfUrl = (selectedSubmission as { signed_pdf_url?: string }).signed_pdf_url
           return (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setSelectedSubmission(null)}>
+              <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="pdf-submission-title">
                 <div className="flex items-center justify-between p-4 border-b">
                   <div className="flex items-center gap-4">
-                    <h2 className="text-xl font-bold text-gray-900">
+                    <h2 id="pdf-submission-title" className="text-xl font-bold text-gray-900">
                       {selectedSubmission.forms?.form_name}
                     </h2>
                     {getStatusBadge(selectedSubmission.status)}
@@ -428,6 +440,7 @@ const FormsPage = () => {
                   <button
                     onClick={() => setSelectedSubmission(null)}
                     className="p-2 hover:bg-gray-100 rounded-lg"
+                    aria-label="Close submission"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -476,10 +489,10 @@ const FormsPage = () => {
 
         // Non-PDF form submission view (original)
         return (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setSelectedSubmission(null)}>
+            <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="submission-modal-title">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">
+                <h2 id="submission-modal-title" className="text-xl font-bold text-gray-900">
                   {selectedSubmission.forms?.form_name}
                 </h2>
                 <button

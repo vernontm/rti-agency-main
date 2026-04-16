@@ -217,7 +217,7 @@ const JobsPage = () => {
             </li>
           </ul>
 
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-[#003d5c]">
+          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden text-[#003d5c]" aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}>
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
@@ -292,8 +292,9 @@ const JobsPage = () => {
           <p className="text-[#fe9226] text-sm font-semibold tracking-[0.15em] uppercase text-center mb-3">CAREERS</p>
           <h2 className="text-3xl md:text-4xl font-bold text-[#003d5c] text-center mb-12">Open Positions</h2>
           {loadingPositions ? (
-            <div className="flex justify-center py-8">
+            <div className="flex justify-center py-8" role="status" aria-live="polite">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fe9226]"></div>
+              <span className="sr-only">Loading positions...</span>
             </div>
           ) : positions.length === 0 ? (
             <div className="bg-[#003d5c] rounded-2xl p-8 text-center">

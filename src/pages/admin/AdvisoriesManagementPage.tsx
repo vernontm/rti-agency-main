@@ -201,8 +201,9 @@ const AdvisoriesManagementPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -267,6 +268,7 @@ const AdvisoriesManagementPage = () => {
                             : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                         }`}
                         title={advisory.is_visible ? 'Visible to educators' : 'Hidden from educators'}
+                        aria-label={advisory.is_visible ? 'Hide from educators' : 'Show to educators'}
                       >
                         {advisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
@@ -277,6 +279,7 @@ const AdvisoriesManagementPage = () => {
                         }}
                         className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                         title="Delete advisory"
+                        aria-label="Delete advisory"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -314,10 +317,10 @@ const AdvisoriesManagementPage = () => {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') { setShowUploadModal(false); setNewAdvisory({ title: '', description: '', category: 'advisory' }); setSelectedFile(null); } }}>
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4" role="dialog" aria-modal="true" aria-labelledby="upload-advisory-title">
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Upload File</h2>
+              <h2 id="upload-advisory-title" className="text-lg font-semibold">Upload File</h2>
               <button
                 onClick={() => {
                   setShowUploadModal(false)
@@ -325,6 +328,7 @@ const AdvisoriesManagementPage = () => {
                   setSelectedFile(null)
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>

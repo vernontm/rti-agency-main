@@ -57,8 +57,9 @@ const DocumentsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -111,8 +112,13 @@ const DocumentsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
+      <div className="flex gap-2 border-b border-gray-200" role="tablist" aria-label="Documents">
         <button
+          id="docs-tab-advisories"
+          role="tab"
+          aria-selected={activeTab === 'advisories'}
+          aria-controls="docs-tabpanel-advisories"
+          tabIndex={activeTab === 'advisories' ? 0 : -1}
           onClick={() => setActiveTab('advisories')}
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
             activeTab === 'advisories'
@@ -126,6 +132,11 @@ const DocumentsPage = () => {
           </div>
         </button>
         <button
+          id="docs-tab-downloads"
+          role="tab"
+          aria-selected={activeTab === 'downloads'}
+          aria-controls="docs-tabpanel-downloads"
+          tabIndex={activeTab === 'downloads' ? 0 : -1}
           onClick={() => setActiveTab('downloads')}
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
             activeTab === 'downloads'
@@ -140,6 +151,7 @@ const DocumentsPage = () => {
         </button>
       </div>
 
+      <div role="tabpanel" id={`docs-tabpanel-${activeTab}`} aria-labelledby={`docs-tab-${activeTab}`}>
       {currentDocs.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
@@ -188,6 +200,7 @@ const DocumentsPage = () => {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

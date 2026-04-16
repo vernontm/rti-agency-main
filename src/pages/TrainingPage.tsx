@@ -229,8 +229,9 @@ const TrainingPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -275,6 +276,8 @@ const TrainingPage = () => {
             {/* Module Header */}
             <button
               onClick={() => toggleModule(module.name)}
+              aria-expanded={module.isExpanded}
+              aria-controls={`module-panel-${module.name.replace(/\s+/g, '-').toLowerCase()}`}
               className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
             >
               <div className="flex items-center gap-3">
@@ -311,7 +314,7 @@ const TrainingPage = () => {
 
             {/* Module Videos */}
             {module.isExpanded && (
-              <div className="border-t border-gray-100">
+              <div id={`module-panel-${module.name.replace(/\s+/g, '-').toLowerCase()}`} className="border-t border-gray-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                   {module.videos.map((video, index) => {
                     const progressPercent = getVideoProgress(video)
@@ -424,10 +427,10 @@ const TrainingPage = () => {
       </div>
 
       {selectedVideo && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="w-full max-w-4xl p-4">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 overflow-y-auto" onKeyDown={(e) => { if (e.key === 'Escape') { setSelectedVideo(null); setPlaying(false); setShowQuiz(false); } }}>
+          <div className="w-full max-w-4xl p-4" role="dialog" aria-modal="true" aria-labelledby="video-player-title">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">{selectedVideo.title}</h2>
+              <h2 id="video-player-title" className="text-xl font-bold text-white">{selectedVideo.title}</h2>
               <button
                 onClick={() => {
                   setSelectedVideo(null)
@@ -435,6 +438,7 @@ const TrainingPage = () => {
                   setShowQuiz(false)
                 }}
                 className="p-2 text-white hover:bg-white/10 rounded-lg"
+                aria-label="Close video player"
               >
                 <X className="w-6 h-6" />
               </button>

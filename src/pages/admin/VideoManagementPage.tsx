@@ -396,8 +396,9 @@ const VideoManagementPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -465,6 +466,7 @@ const VideoManagementPage = () => {
                     onClick={() => moveVideo(video.id, 'up')}
                     disabled={index === 0}
                     className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Move video up"
                   >
                     <ArrowUp className="w-4 h-4" />
                   </button>
@@ -472,6 +474,7 @@ const VideoManagementPage = () => {
                     onClick={() => moveVideo(video.id, 'down')}
                     disabled={index === arr.length - 1}
                     className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 disabled:cursor-not-allowed"
+                    aria-label="Move video down"
                   >
                     <ArrowDown className="w-4 h-4" />
                   </button>
@@ -581,15 +584,16 @@ const VideoManagementPage = () => {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setShowModal(false)}>
+          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="video-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="video-modal-title" className="text-xl font-bold text-gray-900">
                 {editingVideo ? 'Edit Video' : 'Add New Video'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -761,13 +765,14 @@ const VideoManagementPage = () => {
 
       {/* Video Player Modal */}
       {playingVideo && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-4xl">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setPlayingVideo(null)}>
+          <div className="w-full max-w-4xl" role="dialog" aria-modal="true" aria-labelledby="video-player-modal-title">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-white">{playingVideo.title}</h2>
+              <h2 id="video-player-modal-title" className="text-xl font-bold text-white">{playingVideo.title}</h2>
               <button
                 onClick={() => setPlayingVideo(null)}
                 className="p-2 text-white hover:bg-white/10 rounded-lg"
+                aria-label="Close video player"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -789,13 +794,15 @@ const VideoManagementPage = () => {
 
       {/* Quiz Editor Modal */}
       {editingQuizVideo && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onKeyDown={(e) => e.key === 'Escape' && setEditingQuizVideo(null)}>
+          <Card className="w-full max-w-3xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="quiz-editor-title">
             <div className="flex items-center justify-between mb-4">
+              <h2 id="quiz-editor-title" className="sr-only">Quiz Editor</h2>
               <div></div>
               <button
                 onClick={() => setEditingQuizVideo(null)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close quiz editor"
               >
                 <X className="w-5 h-5" />
               </button>

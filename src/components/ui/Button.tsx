@@ -13,7 +13,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed'
     
     const variants = {
-      primary: 'bg-orange-500 text-white hover:bg-orange-600 focus:ring-orange-500',
+      primary: 'bg-orange-700 text-white hover:bg-orange-800 focus:ring-orange-700',
       secondary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
       outline: 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-orange-500',
       ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
@@ -31,9 +31,10 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
         disabled={disabled || loading}
+        aria-busy={loading || undefined}
         {...props}
       >
-        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+        {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />}
         {children}
       </button>
     )

@@ -201,8 +201,9 @@ const UsersPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -299,6 +300,7 @@ const UsersPage = () => {
                             onClick={() => handleApprove(user.id)}
                             className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Approve"
+                            aria-label="Approve user"
                           >
                             <CheckCircle className="w-4 h-4" />
                           </button>
@@ -306,6 +308,7 @@ const UsersPage = () => {
                             onClick={() => handleReject(user.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Reject"
+                            aria-label="Reject user"
                           >
                             <XCircle className="w-4 h-4" />
                           </button>
@@ -314,12 +317,14 @@ const UsersPage = () => {
                       <button
                         onClick={() => openEditModal(user)}
                         className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        aria-label="Edit user"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(user.id)}
                         className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        aria-label="Delete user"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -339,10 +344,10 @@ const UsersPage = () => {
       </Card>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') { setShowAddModal(false); setAddFormData({ full_name: '', email: '', password: '', role: 'client' }); setShowPassword(false); } }}>
+          <Card className="w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="add-user-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Add New User</h2>
+              <h2 id="add-user-modal-title" className="text-xl font-bold text-gray-900">Add New User</h2>
               <button
                 onClick={() => {
                   setShowAddModal(false)
@@ -350,6 +355,7 @@ const UsersPage = () => {
                   setShowPassword(false)
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -391,6 +397,7 @@ const UsersPage = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -435,10 +442,10 @@ const UsersPage = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') { setShowModal(false); setEditingUser(null); } }}>
+          <Card className="w-full max-w-md" role="dialog" aria-modal="true" aria-labelledby="edit-user-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="edit-user-modal-title" className="text-xl font-bold text-gray-900">
                 {editingUser ? 'Edit User' : 'Add User'}
               </h2>
               <button
@@ -447,6 +454,7 @@ const UsersPage = () => {
                   setEditingUser(null)
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>

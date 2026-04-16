@@ -237,6 +237,7 @@ const Sidebar = () => {
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 hover:bg-gray-800 rounded-lg transition-colors"
           title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
@@ -254,6 +255,8 @@ const Sidebar = () => {
               {!collapsed ? (
                 <button
                   onClick={() => toggleCategory(category.name)}
+                  aria-expanded={isExpanded}
+                  aria-controls={`sidebar-panel-${category.name.replace(/\s+/g, '-').toLowerCase()}`}
                   className="w-full flex items-center justify-between px-3 py-2 mt-2 first:mt-0 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors rounded-md"
                 >
                   <span className="flex items-center gap-2">
@@ -270,7 +273,7 @@ const Sidebar = () => {
               )}
 
               {/* Category Items */}
-              <div className={`space-y-0.5 ${!collapsed && !isExpanded ? 'hidden' : ''}`}>
+              <div id={`sidebar-panel-${category.name.replace(/\s+/g, '-').toLowerCase()}`} className={`space-y-0.5 ${!collapsed && !isExpanded ? 'hidden' : ''}`}>
                 {category.items.map((item) => (
                   <div key={item.to} className="relative group/item">
                     <NavLink

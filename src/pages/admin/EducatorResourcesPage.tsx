@@ -159,8 +159,9 @@ const EducatorResourcesPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -249,6 +250,7 @@ const EducatorResourcesPage = () => {
                         onClick={() => toggleVisibility(resource.id, resource.is_visible)}
                         className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
                         title={resource.is_visible ? 'Hide from employees' : 'Show to employees'}
+                        aria-label={resource.is_visible ? 'Hide from employees' : 'Show to employees'}
                       >
                         {resource.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                       </button>
@@ -256,6 +258,7 @@ const EducatorResourcesPage = () => {
                         onClick={() => deleteResource(resource.id)}
                         className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg"
                         title="Delete"
+                        aria-label="Delete resource"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -270,11 +273,11 @@ const EducatorResourcesPage = () => {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setShowUploadModal(false)}>
+          <div className="bg-white rounded-xl max-w-md w-full" role="dialog" aria-modal="true" aria-labelledby="upload-resource-title">
             <div className="p-6 border-b flex items-center justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Upload Resource</h2>
-              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600">
+              <h2 id="upload-resource-title" className="text-xl font-bold text-gray-900">Upload Resource</h2>
+              <button onClick={() => setShowUploadModal(false)} className="text-gray-400 hover:text-gray-600" aria-label="Close dialog">
                 <X className="w-6 h-6" />
               </button>
             </div>

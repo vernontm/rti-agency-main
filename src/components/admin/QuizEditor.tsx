@@ -204,8 +204,9 @@ const QuizEditor = ({ videoId, videoTitle, onClose }: QuizEditorProps) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -256,6 +257,7 @@ const QuizEditor = ({ videoId, videoTitle, onClose }: QuizEditorProps) => {
                 <button
                   onClick={() => removeQuestion(qIndex)}
                   className="text-red-500 hover:text-red-700 p-1"
+                  aria-label="Remove question"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -296,6 +298,7 @@ const QuizEditor = ({ videoId, videoTitle, onClose }: QuizEditorProps) => {
                         <button
                           onClick={() => removeOption(qIndex, oIndex)}
                           className="text-gray-400 hover:text-red-500 p-1"
+                          aria-label="Remove option"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

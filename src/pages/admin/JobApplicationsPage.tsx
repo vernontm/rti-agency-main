@@ -107,8 +107,9 @@ const JobApplicationsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -229,12 +230,12 @@ const JobApplicationsPage = () => {
 
       {/* Review Modal */}
       {selectedApp && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setSelectedApp(null)}>
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="app-review-title">
             <div className="p-6 border-b">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Application Review</h2>
-                <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600">
+                <h2 id="app-review-title" className="text-xl font-bold text-gray-900">Application Review</h2>
+                <button onClick={() => setSelectedApp(null)} className="text-gray-400 hover:text-gray-600" aria-label="Close dialog">
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>

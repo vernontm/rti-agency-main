@@ -228,8 +228,9 @@ const ArchivesPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -365,6 +366,7 @@ const ArchivesPage = () => {
                           onClick={() => setViewingItem(item)}
                           className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                           title="View PDF"
+                          aria-label="View PDF"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -374,6 +376,7 @@ const ArchivesPage = () => {
                           onClick={() => setViewingItem(item)}
                           className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                           title="View Resume"
+                          aria-label="View resume"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -382,6 +385,7 @@ const ArchivesPage = () => {
                         onClick={() => handleDelete(item)}
                         className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                         title="Delete permanently"
+                        aria-label="Delete permanently"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -396,16 +400,17 @@ const ArchivesPage = () => {
 
       {/* PDF Viewer Modal */}
       {viewingItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setViewingItem(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="archive-viewer-title">
             <div className="flex items-center justify-between p-4 border-b">
               <div>
-                <h2 className="text-lg font-semibold">{viewingItem.title}</h2>
+                <h2 id="archive-viewer-title" className="text-lg font-semibold">{viewingItem.title}</h2>
                 <p className="text-sm text-gray-500">{viewingItem.subtitle}</p>
               </div>
               <button
                 onClick={() => setViewingItem(null)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>

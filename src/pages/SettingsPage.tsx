@@ -252,10 +252,15 @@ const SettingsPage = () => {
 
       <div className="flex gap-6">
         <Card className="w-64 h-fit" padding="sm">
-          <nav className="space-y-1">
+          <nav role="tablist" aria-label="Settings" className="space-y-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                id={`settings-tab-${tab.id}`}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                aria-controls={`settings-tabpanel-${tab.id}`}
+                tabIndex={activeTab === tab.id ? 0 : -1}
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                   activeTab === tab.id
@@ -270,7 +275,7 @@ const SettingsPage = () => {
           </nav>
         </Card>
 
-        <div className="flex-1">
+        <div className="flex-1" role="tabpanel" id={`settings-tabpanel-${activeTab}`} aria-labelledby={`settings-tab-${activeTab}`}>
           {activeTab === 'profile' && (
             <Card>
               <h2 className="text-lg font-semibold text-gray-900 mb-6">Profile Information</h2>
@@ -367,8 +372,9 @@ const SettingsPage = () => {
               </div>
 
               {popupLoading ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <span className="sr-only">Loading popups...</span>
                 </div>
               ) : popups.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No popups configured.</p>
@@ -411,10 +417,10 @@ const SettingsPage = () => {
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
-                            <button onClick={() => openPopupModal(popup)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <button onClick={() => openPopupModal(popup)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" aria-label="Edit popup">
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => deletePopup(popup.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                            <button onClick={() => deletePopup(popup.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" aria-label="Delete popup">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -435,8 +441,9 @@ const SettingsPage = () => {
               </p>
 
               {notifLoading ? (
-                <div className="flex items-center justify-center py-12">
+                <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                  <span className="sr-only">Loading notification settings...</span>
                 </div>
               ) : notificationSettings.length === 0 ? (
                 <p className="text-gray-500 text-center py-8">No notification settings found.</p>
@@ -510,13 +517,13 @@ const SettingsPage = () => {
       </div>
 
       {showPopupModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => e.key === 'Escape' && setShowPopupModal(false)}>
+          <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="popup-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="popup-modal-title" className="text-xl font-bold text-gray-900">
                 {editingPopup ? 'Edit Popup' : 'New Popup'}
               </h2>
-              <button onClick={() => setShowPopupModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setShowPopupModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close dialog">
                 <X className="w-5 h-5" />
               </button>
             </div>

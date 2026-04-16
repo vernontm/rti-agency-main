@@ -72,6 +72,7 @@ const SitePopup = () => {
       className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-300 ${
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
+      onKeyDown={(e) => e.key === 'Escape' && handleDismiss()}
     >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -82,17 +83,21 @@ const SitePopup = () => {
         className={`relative bg-white rounded-2xl shadow-2xl max-w-lg w-full transform transition-all duration-300 ${
           visible ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'
         }`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="site-popup-title"
       >
         <div className="bg-gradient-to-r from-[#003d5c] to-[#002840] rounded-t-2xl px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#fe9226]/20 rounded-full flex items-center justify-center">
               <Megaphone className="w-5 h-5 text-[#fe9226]" />
             </div>
-            <h2 className="text-xl font-bold text-white">{popup.title}</h2>
+            <h2 id="site-popup-title" className="text-xl font-bold text-white">{popup.title}</h2>
           </div>
           <button
             onClick={handleDismiss}
             className="text-white/70 hover:text-white transition-colors p-1"
+            aria-label="Dismiss popup"
           >
             <X className="w-5 h-5" />
           </button>

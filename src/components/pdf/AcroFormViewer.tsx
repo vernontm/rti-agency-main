@@ -248,6 +248,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
               onClick={handleZoomOut}
               className="p-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               title="Zoom out"
+              aria-label="Zoom out"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -256,6 +257,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
               onClick={handleZoomIn}
               className="p-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
               title="Zoom in"
+              aria-label="Zoom in"
             >
               <ZoomIn className="w-4 h-4" />
             </button>

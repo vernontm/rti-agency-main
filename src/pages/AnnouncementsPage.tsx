@@ -130,8 +130,9 @@ const AnnouncementsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -202,13 +203,14 @@ const AnnouncementsPage = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setShowModal(false)}>
+          <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="announcement-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">New Announcement</h2>
+              <h2 id="announcement-modal-title" className="text-xl font-bold text-gray-900">New Announcement</h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>

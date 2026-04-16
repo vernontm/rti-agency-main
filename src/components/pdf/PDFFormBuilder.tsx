@@ -496,6 +496,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
                   onClick={() => duplicateField(selectedFieldData.id)}
                   className="p-1 text-blue-500 hover:bg-blue-50 rounded"
                   title="Duplicate field"
+                  aria-label="Duplicate field"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                 </button>
@@ -503,6 +504,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
                   onClick={() => deleteField(selectedFieldData.id)}
                   className="p-1 text-red-500 hover:bg-red-50 rounded"
                   title="Delete field"
+                  aria-label="Delete field"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -569,6 +571,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                   disabled={currentPage <= 1}
                   className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                  aria-label="Previous page"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -579,6 +582,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                   disabled={currentPage >= totalPages}
                   className="p-2 hover:bg-gray-100 rounded disabled:opacity-50"
+                  aria-label="Next page"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
@@ -712,6 +716,7 @@ const PDFFormBuilder = ({ onSave, initialPdfUrl, initialFields, initialFormName,
                       deleteField(field.id)
                     }}
                     className="p-1 text-red-500 hover:bg-red-50 rounded"
+                    aria-label="Remove field"
                   >
                     <X className="w-4 h-4" />
                   </button>

@@ -38,8 +38,9 @@ const ProtectedRoute = ({ children, allowedRoles, allowPending = false }: Protec
   // Wait for auth to be initialized
   if (!initialized) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center" role="status" aria-live="polite">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -51,8 +52,9 @@ const ProtectedRoute = ({ children, allowedRoles, allowPending = false }: Protec
   // Wait for profile to load (with timeout)
   if (!profile && !profileTimeout) {
     return (
-      <div className="h-screen flex items-center justify-center">
+      <div className="h-screen flex items-center justify-center" role="status" aria-live="polite">
         <Loader2 className="w-8 h-8 animate-spin text-orange-500" />
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }

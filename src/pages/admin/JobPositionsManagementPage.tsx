@@ -167,8 +167,9 @@ const JobPositionsManagementPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -258,6 +259,7 @@ const JobPositionsManagementPage = () => {
                         : 'text-gray-400 hover:bg-gray-100'
                     }`}
                     title={position.is_visible ? 'Hide from jobs page' : 'Show on jobs page'}
+                    aria-label={position.is_visible ? 'Hide from jobs page' : 'Show on jobs page'}
                   >
                     {position.is_visible ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
                   </button>
@@ -265,6 +267,7 @@ const JobPositionsManagementPage = () => {
                     onClick={() => openEditModal(position)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     title="Edit position"
+                    aria-label="Edit position"
                   >
                     <Edit2 className="w-5 h-5" />
                   </button>
@@ -272,6 +275,7 @@ const JobPositionsManagementPage = () => {
                     onClick={() => deletePosition(position.id)}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Delete position"
+                    aria-label="Delete position"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -284,16 +288,17 @@ const JobPositionsManagementPage = () => {
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="position-modal-title">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="position-modal-title" className="text-xl font-bold text-gray-900">
                 {editingPosition ? 'Edit Position' : 'Add New Position'}
               </h2>
               <button
                 onClick={() => setShowModal(false)}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>

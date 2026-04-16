@@ -159,8 +159,9 @@ const VideoSettingsPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -206,6 +207,7 @@ const VideoSettingsPage = () => {
                     onClick={() => updateCategoryOrder(category.id, 'up')}
                     disabled={index === 0}
                     className="p-1 text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                    aria-label="Move category up"
                   >
                     ↑
                   </button>
@@ -213,12 +215,14 @@ const VideoSettingsPage = () => {
                     onClick={() => updateCategoryOrder(category.id, 'down')}
                     disabled={index === categories.length - 1}
                     className="p-1 text-gray-500 hover:text-gray-700 disabled:opacity-30"
+                    aria-label="Move category down"
                   >
                     ↓
                   </button>
                   <button
                     onClick={() => deleteCategory(category.id)}
                     className="p-1 text-red-500 hover:text-red-700"
+                    aria-label="Delete category"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

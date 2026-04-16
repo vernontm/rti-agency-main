@@ -387,6 +387,7 @@ const InboxPage = () => {
           <button
             onClick={() => setSelectedItem(null)}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            aria-label="Close detail panel"
           >
             <X className="w-5 h-5" />
           </button>
@@ -592,8 +593,9 @@ const InboxPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }

@@ -305,8 +305,9 @@ const UpdatesPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -404,12 +405,13 @@ const UpdatesPage = () => {
                     disabled={isDismissed}
                     className={`mt-1 flex-shrink-0 ${isDismissed ? 'cursor-default' : 'cursor-pointer hover:scale-110 transition-transform'}`}
                     title={
-                      isDismissed 
-                        ? 'Already dismissed' 
-                        : requiresApproval 
-                          ? 'Approve or deny to dismiss' 
+                      isDismissed
+                        ? 'Already dismissed'
+                        : requiresApproval
+                          ? 'Approve or deny to dismiss'
                           : 'Click to dismiss'
                     }
+                    aria-label={isDismissed ? 'Already dismissed' : 'Dismiss activity'}
                   >
                     {isDismissed ? (
                       <CheckCircle2 className="w-5 h-5 text-green-500" />

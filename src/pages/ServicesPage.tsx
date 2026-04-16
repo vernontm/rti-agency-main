@@ -232,8 +232,9 @@ const ServicesPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -350,6 +351,7 @@ const ServicesPage = () => {
                           onClick={() => openInquiryDetail(inquiry)}
                           className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                           title="View Details"
+                          aria-label="View inquiry details"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -373,10 +375,10 @@ const ServicesPage = () => {
       )}
 
       {showInquiryModal && selectedService && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => { if (e.key === 'Escape') { setShowInquiryModal(false); setSelectedService(null); } }}>
+          <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="inquiry-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="inquiry-modal-title" className="text-xl font-bold text-gray-900">
                 Inquire about {selectedService.service_name}
               </h2>
               <button
@@ -385,6 +387,7 @@ const ServicesPage = () => {
                   setSelectedService(null)
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -464,15 +467,16 @@ const ServicesPage = () => {
 
       {/* Service Add/Edit Modal */}
       {showServiceModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setShowServiceModal(false)}>
+          <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="service-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 id="service-modal-title" className="text-xl font-bold text-gray-900">
                 {editingService ? 'Edit Service' : 'Add New Service'}
               </h2>
               <button
                 onClick={() => setShowServiceModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -531,16 +535,17 @@ const ServicesPage = () => {
 
       {/* Inquiry Detail Modal */}
       {showInquiryDetailModal && selectedInquiry && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => { if (e.key === 'Escape') { setShowInquiryDetailModal(false); setSelectedInquiry(null); } }}>
+          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="inquiry-detail-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-gray-900">Inquiry Details</h2>
+              <h2 id="inquiry-detail-title" className="text-xl font-bold text-gray-900">Inquiry Details</h2>
               <button
                 onClick={() => {
                   setShowInquiryDetailModal(false)
                   setSelectedInquiry(null)
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>

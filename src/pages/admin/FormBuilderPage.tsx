@@ -234,8 +234,9 @@ const FormBuilderPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="sr-only">Loading...</span>
       </div>
     )
   }
@@ -248,6 +249,7 @@ const FormBuilderPage = () => {
           <button
             onClick={resetToList}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            aria-label="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -279,6 +281,7 @@ const FormBuilderPage = () => {
           <button
             onClick={resetToList}
             className="p-2 hover:bg-gray-100 rounded-lg"
+            aria-label="Go back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -387,6 +390,7 @@ const FormBuilderPage = () => {
                   <button
                     onClick={() => removeField(index)}
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg mt-6"
+                    aria-label="Remove field"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
