@@ -17,7 +17,6 @@ import UsersPage from './pages/UsersPage'
 import TrainingPage from './pages/TrainingPage'
 import AnnouncementsPage from './pages/AnnouncementsPage'
 import SettingsPage from './pages/SettingsPage'
-import FormBuilderPage from './pages/admin/FormBuilderPage'
 import VideoManagementPage from './pages/admin/VideoManagementPage'
 import VideoSettingsPage from './pages/admin/VideoSettingsPage'
 import PendingUsersPage from './pages/admin/PendingUsersPage'
@@ -84,7 +83,6 @@ function App() {
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/documents" element={<AdvisoriesPage />} />
-          <Route path="/admin/forms" element={<FormBuilderPage />} />
           <Route path="/admin/videos" element={<VideoManagementPage />} />
           <Route path="/admin/video-settings" element={<VideoSettingsPage />} />
           <Route path="/admin/pending-users" element={<PendingUsersPage />} />

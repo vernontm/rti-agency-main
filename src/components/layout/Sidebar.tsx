@@ -199,7 +199,6 @@ const Sidebar = () => {
       icon: PenTool,
       roles: ['admin'],
       items: [
-        { to: '/admin/forms', icon: PenTool, label: 'Form Builder', tooltip: 'Create & edit forms', roles: ['admin'] },
         { to: '/admin/videos', icon: Film, label: 'Video Manager', tooltip: 'Manage training videos', roles: ['admin'] },
         { to: '/admin/video-settings', icon: Sliders, label: 'Video Settings', tooltip: 'Video categories & config', roles: ['admin'] },
       ]
