@@ -200,7 +200,8 @@ export async function generateAcroFilledPDF(
 
   // Helpers to detect special field roles
   const isManagerFieldName = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
-  const isParentFieldName = (name: string) => /parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name)
+  // Only skip parent/client/guardian SIGNATURE fields (not "Client Name" etc.)
+  const isParentFieldName = (name: string) => /sig/i.test(name) && (/parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name))
 
   // Fill AcroForm fields from collected values (skip manager & parent fields)
   for (const field of allFields) {

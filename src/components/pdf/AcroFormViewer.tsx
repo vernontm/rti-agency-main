@@ -29,8 +29,9 @@ interface AnnotationField {
 
 // Field role detection helpers
 const isManagerField = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
-const isParentField = (name: string) => /parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name)
-const isEmployeeSignatureField = (name: string) => /sig/i.test(name) && !isManagerField(name) && !isParentField(name)
+// Only parent/client/guardian SIGNATURE fields are non-fillable. "Client Name" etc. remain editable.
+const isParentSignatureField = (name: string) => /sig/i.test(name) && (/parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name))
+const isEmployeeSignatureField = (name: string) => /sig/i.test(name) && !isManagerField(name) && !isParentSignatureField(name)
 
 export type AcroFormMode = 'employee' | 'manager-review' | 'readonly'
 
@@ -253,7 +254,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
   // Determine field editability and role
   const getFieldRole = (field: AnnotationField): 'regular' | 'employee-sig' | 'date' | 'manager' | 'parent' => {
     if (isManagerField(field.fieldName)) return 'manager'
-    if (isParentField(field.fieldName)) return 'parent'
+    if (isParentSignatureField(field.fieldName)) return 'parent'
     if (isEmployeeSignatureField(field.fieldName)) return 'employee-sig'
     if (/date/i.test(field.fieldName)) return 'date'
     return 'regular'
@@ -394,7 +395,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
 
   // Count fields for notices
   const managerFieldCount = annotationFields.filter(f => isManagerField(f.fieldName)).length
-  const parentFieldCount = annotationFields.filter(f => isParentField(f.fieldName)).length
+  const parentFieldCount = annotationFields.filter(f => isParentSignatureField(f.fieldName)).length
 
   return (
     <div className="flex flex-col h-full">
