@@ -208,12 +208,31 @@ const AdvisoriesManagementPage = () => {
     )
   }
 
+  const fileCategories = [
+    { key: 'all', label: 'All Files', count: advisories.length },
+    { key: 'advisory', label: 'Advisories', count: advisories.filter(a => a.category === 'advisory').length },
+    { key: 'downloads', label: 'Downloads', count: advisories.filter(a => a.category === 'downloads').length },
+    { key: 'visible', label: 'Visible', count: advisories.filter(a => a.is_visible).length },
+    { key: 'hidden', label: 'Hidden', count: advisories.filter(a => !a.is_visible).length },
+  ]
+
+  const [fileCategoryFilter, setFileCategoryFilter] = useState('all')
+
+  const filteredAdvisories = advisories.filter(a => {
+    if (fileCategoryFilter === 'advisory') return a.category === 'advisory'
+    if (fileCategoryFilter === 'downloads') return a.category === 'downloads'
+    if (fileCategoryFilter === 'visible') return a.is_visible
+    if (fileCategoryFilter === 'hidden') return !a.is_visible
+    return true
+  })
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="h-[calc(100vh-120px)] flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">File Manager</h1>
-          <p className="text-gray-600">Upload and manage advisories and downloads for educators</p>
+          <p className="text-gray-500 text-sm">Upload and manage advisories and downloads for educators</p>
         </div>
         <Button onClick={() => setShowUploadModal(true)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -221,98 +240,118 @@ const AdvisoriesManagementPage = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Advisories List */}
-        <Card className="p-0 overflow-hidden">
-          <div className="p-4 border-b bg-gray-50">
-            <h2 className="font-semibold text-gray-900">All Files</h2>
-            <p className="text-sm text-gray-500">{advisories.length} total</p>
+      <div className="flex flex-1 bg-white rounded-xl shadow-sm border overflow-hidden min-h-0">
+        {/* Sidebar */}
+        <div className="w-56 border-r flex flex-col bg-gray-50/50">
+          <nav className="flex-1 p-2 space-y-0.5">
+            {fileCategories.map((cat) => (
+              <button
+                key={cat.key}
+                onClick={() => setFileCategoryFilter(cat.key)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  fileCategoryFilter === cat.key
+                    ? 'bg-orange-50 text-orange-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex items-center gap-2.5">
+                  <FileText className="w-4 h-4" />
+                  {cat.label}
+                </span>
+                {cat.count > 0 && (
+                  <span className={`text-xs font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${
+                    fileCategoryFilter === cat.key ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {cat.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* File list */}
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="px-5 py-3 border-b flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900">
+              {fileCategories.find(c => c.key === fileCategoryFilter)?.label || 'All Files'}
+            </h2>
+            <span className="text-sm text-gray-500">{filteredAdvisories.length} files</span>
           </div>
-          <div className="divide-y max-h-[600px] overflow-y-auto">
-            {advisories.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p>No files uploaded yet</p>
+
+          <div className="flex-1 overflow-y-auto">
+            {filteredAdvisories.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <FileText className="w-12 h-12 mb-3 opacity-40" />
+                <p className="text-sm">No files found</p>
               </div>
             ) : (
-              advisories.map((advisory) => (
-                <div
+              filteredAdvisories.map((advisory) => (
+                <button
                   key={advisory.id}
-                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                    selectedAdvisory?.id === advisory.id ? 'bg-orange-50 border-l-4 border-orange-500' : ''
+                  onClick={() => setSelectedAdvisory(selectedAdvisory?.id === advisory.id ? null : advisory)}
+                  className={`w-full flex items-center gap-4 px-5 py-3.5 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
+                    selectedAdvisory?.id === advisory.id ? 'bg-orange-50' : ''
                   }`}
-                  onClick={() => setSelectedAdvisory(advisory)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <h3 className="font-medium text-gray-900 truncate">{advisory.title}</h3>
-                      </div>
-                      {advisory.description && (
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{advisory.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-2">
-                        {new Date(advisory.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 ml-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleVisibility(advisory)
-                        }}
-                        className={`p-2 rounded-lg transition-colors ${
-                          advisory.is_visible 
-                            ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                            : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                        }`}
-                        title={advisory.is_visible ? 'Visible to educators' : 'Hidden from educators'}
-                        aria-label={advisory.is_visible ? 'Hide from educators' : 'Show to educators'}
-                      >
-                        {advisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          deleteAdvisory(advisory)
-                        }}
-                        className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                        title="Delete advisory"
-                        aria-label="Delete advisory"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${advisory.is_visible ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                    <FileText className="w-5 h-5" />
                   </div>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 truncate">{advisory.title}</p>
+                    <p className="text-sm text-gray-500 truncate mt-0.5">
+                      <span className="capitalize">{advisory.category}</span>
+                      {advisory.description && <><span className="mx-1.5 text-gray-300">&mdash;</span>{advisory.description}</>}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${advisory.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {advisory.is_visible ? 'Visible' : 'Hidden'}
+                    </span>
+                    <span className="text-xs text-gray-400">{new Date(advisory.created_at).toLocaleDateString()}</span>
+                  </div>
+                </button>
               ))
             )}
           </div>
-        </Card>
+        </div>
 
-        {/* PDF Preview */}
-        <Card className="p-0 overflow-hidden">
-          <div className="p-4 border-b bg-gray-50">
-            <h2 className="font-semibold text-gray-900">Preview</h2>
-          </div>
+        {/* Preview panel */}
+        <div className="w-[45%] border-l flex flex-col bg-white">
           {selectedAdvisory ? (
-            <div className="h-[600px]">
-              <iframe
-                src={selectedAdvisory.pdf_url}
-                className="w-full h-full"
-                title={selectedAdvisory.title}
-              />
-            </div>
+            <>
+              <div className="px-4 py-3 border-b flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900 truncate">{selectedAdvisory.title}</h3>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => toggleVisibility(selectedAdvisory)}
+                    className={`p-2 rounded-lg transition-colors ${selectedAdvisory.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                    aria-label={selectedAdvisory.is_visible ? 'Hide from educators' : 'Show to educators'}
+                  >
+                    {selectedAdvisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => deleteAdvisory(selectedAdvisory)}
+                    className="p-2 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                    aria-label="Delete file"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1">
+                <iframe src={selectedAdvisory.pdf_url} className="w-full h-full" title={selectedAdvisory.title} />
+              </div>
+            </>
           ) : (
-            <div className="h-[600px] flex items-center justify-center text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-gray-400">
               <div className="text-center">
-                <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <p>Select an advisory to preview</p>
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-40" />
+                <p className="text-sm">Select a file to preview</p>
               </div>
             </div>
           )}
-        </Card>
+        </div>
       </div>
 
       {/* Upload Modal */}

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import {
@@ -13,21 +12,21 @@ import {
   FileText,
   MessageSquare,
   Search,
-  Filter,
   ChevronRight,
   Clock,
   CheckCircle,
   XCircle,
   Archive,
   Reply,
-  Trash2,
+  Star,
   X,
-  ShieldAlert
+  ShieldAlert,
+  RefreshCw,
+  ArrowLeft,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type InboxCategory = 'all' | 'approvals' | 'applications' | 'forms' | 'contacts' | 'spam'
-type ItemStatus = 'unread' | 'read' | 'archived'
 
 interface InboxItem {
   id: string
@@ -41,6 +40,24 @@ interface InboxItem {
   data: Record<string, unknown>
 }
 
+const AVATAR_COLORS = [
+  'bg-violet-500', 'bg-orange-500', 'bg-emerald-500', 'bg-teal-500',
+  'bg-rose-500', 'bg-sky-500', 'bg-amber-500', 'bg-indigo-500',
+  'bg-pink-500', 'bg-cyan-500',
+]
+
+const getAvatarColor = (name: string) => {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+const getInitials = (name: string) => {
+  return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
+}
+
 const InboxPage = () => {
   const { profile } = useAuthStore()
   const [items, setItems] = useState<InboxItem[]>([])
@@ -48,7 +65,6 @@ const InboxPage = () => {
   const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null)
   const [category, setCategory] = useState<InboxCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<ItemStatus | 'all'>('all')
 
   useEffect(() => {
     fetchAllItems()
@@ -59,7 +75,6 @@ const InboxPage = () => {
     try {
       const allItems: InboxItem[] = []
 
-      // Fetch all inbox data in parallel
       const [
         { data: pendingUsers },
         { data: applications },
@@ -87,7 +102,7 @@ const InboxPage = () => {
       ])
 
       if (pendingUsers) {
-        pendingUsers.forEach((user: { id: string; full_name: string; email: string; role: string; created_at: string }) => {
+        pendingUsers.forEach((user: any) => {
           allItems.push({
             id: user.id,
             type: 'approval',
@@ -103,7 +118,7 @@ const InboxPage = () => {
       }
 
       if (applications) {
-        applications.forEach((app: { id: string; full_name: string; position_applied: string; email: string; status: string; created_at: string }) => {
+        applications.forEach((app: any) => {
           allItems.push({
             id: app.id,
             type: 'application',
@@ -119,13 +134,13 @@ const InboxPage = () => {
       }
 
       if (formSubmissions) {
-        formSubmissions.forEach((sub: { id: string; forms: { form_name: string } | null; users: { full_name: string; email: string } | null; status: string; submitted_at: string }) => {
+        formSubmissions.forEach((sub: any) => {
           allItems.push({
             id: sub.id,
             type: 'form',
-            title: (sub.forms as { form_name: string } | null)?.form_name || 'Unknown Form',
-            subtitle: `Submitted by: ${(sub.users as { full_name: string } | null)?.full_name || 'Unknown'}`,
-            preview: (sub.users as { email: string } | null)?.email || '',
+            title: sub.forms?.form_name || 'Unknown Form',
+            subtitle: `Submitted by: ${sub.users?.full_name || 'Unknown'}`,
+            preview: sub.users?.email || '',
             status: sub.status,
             isRead: false,
             createdAt: sub.submitted_at,
@@ -135,13 +150,13 @@ const InboxPage = () => {
       }
 
       if (contacts) {
-        contacts.forEach((contact: { id: string; name: string; subject: string; message: string; status: string; spam_score?: number; spam_reasons?: string[]; created_at: string }) => {
+        contacts.forEach((contact: any) => {
           allItems.push({
             id: contact.id,
             type: 'contact',
             title: contact.name,
             subtitle: contact.subject,
-            preview: contact.message.substring(0, 100) + (contact.message.length > 100 ? '...' : ''),
+            preview: contact.message.substring(0, 120) + (contact.message.length > 120 ? '...' : ''),
             status: contact.status,
             isRead: contact.status !== 'new',
             createdAt: contact.created_at,
@@ -150,7 +165,6 @@ const InboxPage = () => {
         })
       }
 
-      // Sort by date
       allItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       setItems(allItems)
     } catch (error) {
@@ -161,26 +175,17 @@ const InboxPage = () => {
     }
   }
 
-  const getTypeIcon = (type: InboxItem['type']) => {
+  const getTypeLabel = (type: InboxItem['type']) => {
     switch (type) {
-      case 'approval': return UserPlus
-      case 'application': return Briefcase
-      case 'form': return FileText
-      case 'contact': return MessageSquare
+      case 'approval': return 'Approval'
+      case 'application': return 'Application'
+      case 'form': return 'Form'
+      case 'contact': return 'Contact'
     }
   }
 
-  const getTypeColor = (type: InboxItem['type']) => {
-    switch (type) {
-      case 'approval': return 'bg-blue-100 text-blue-600'
-      case 'application': return 'bg-purple-100 text-purple-600'
-      case 'form': return 'bg-green-100 text-green-600'
-      case 'contact': return 'bg-orange-100 text-orange-600'
-    }
-  }
-
-  const getStatusBadge = (item: InboxItem) => {
-    const statusColors: Record<string, string> = {
+  const getStatusBadge = (status: string) => {
+    const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       new: 'bg-blue-100 text-blue-800',
       approved: 'bg-green-100 text-green-800',
@@ -192,178 +197,99 @@ const InboxPage = () => {
       archived: 'bg-gray-100 text-gray-600',
       spam: 'bg-red-100 text-red-800',
     }
-    return statusColors[item.status] || 'bg-gray-100 text-gray-800'
+    return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
+  // --- Action handlers ---
   const handleApproveUser = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ status: 'approved' })
-        .eq('id', userId)
-
+      const { error } = await supabase.from('users').update({ status: 'approved' }).eq('id', userId)
       if (error) throw error
       toast.success('User approved')
       fetchAllItems()
       setSelectedItem(null)
-    } catch (error) {
-      console.error('Error approving user:', error)
-      toast.error('Failed to approve user')
-    }
+    } catch { toast.error('Failed to approve user') }
   }
 
   const handleRejectUser = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({ status: 'rejected' })
-        .eq('id', userId)
-
+      const { error } = await supabase.from('users').update({ status: 'rejected' }).eq('id', userId)
       if (error) throw error
       toast.success('User rejected')
       fetchAllItems()
       setSelectedItem(null)
-    } catch (error) {
-      console.error('Error rejecting user:', error)
-      toast.error('Failed to reject user')
-    }
+    } catch { toast.error('Failed to reject user') }
   }
 
   const handleUpdateApplicationStatus = async (appId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('job_applications')
-        .update({ 
-          status,
-          reviewed_by: profile?.id,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', appId)
-
+      const { error } = await supabase.from('job_applications').update({ status, reviewed_by: profile?.id, reviewed_at: new Date().toISOString() }).eq('id', appId)
       if (error) throw error
       toast.success(`Application marked as ${status}`)
       fetchAllItems()
       setSelectedItem(null)
-    } catch (error) {
-      console.error('Error updating application:', error)
-      toast.error('Failed to update application')
-    }
+    } catch { toast.error('Failed to update application') }
   }
 
   const handleUpdateContactStatus = async (contactId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('contact_submissions')
-        .update({ 
-          status,
-          replied_by: status === 'replied' ? profile?.id : null,
-          replied_at: status === 'replied' ? new Date().toISOString() : null
-        })
-        .eq('id', contactId)
-
+      const { error } = await supabase.from('contact_submissions').update({ status, replied_by: status === 'replied' ? profile?.id : null, replied_at: status === 'replied' ? new Date().toISOString() : null }).eq('id', contactId)
       if (error) throw error
       toast.success('Contact updated')
       fetchAllItems()
-      if (status === 'archived') setSelectedItem(null)
-    } catch (error) {
-      console.error('Error updating contact:', error)
-      toast.error('Failed to update contact')
-    }
+      if (status === 'archived' || status === 'spam') setSelectedItem(null)
+    } catch { toast.error('Failed to update contact') }
   }
 
   const handleApproveForm = async (submissionId: string) => {
     try {
-      const { error } = await supabase
-        .from('form_submissions')
-        .update({ 
-          status: 'approved',
-          reviewed_by: profile?.id,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', submissionId)
-
+      const { error } = await supabase.from('form_submissions').update({ status: 'approved', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() }).eq('id', submissionId)
       if (error) throw error
       toast.success('Form approved')
       fetchAllItems()
       setSelectedItem(null)
-    } catch (error) {
-      console.error('Error approving form:', error)
-      toast.error('Failed to approve form')
-    }
+    } catch { toast.error('Failed to approve form') }
   }
 
   const handleRejectForm = async (submissionId: string) => {
     try {
-      const { error } = await supabase
-        .from('form_submissions')
-        .update({ 
-          status: 'rejected',
-          reviewed_by: profile?.id,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', submissionId)
-
+      const { error } = await supabase.from('form_submissions').update({ status: 'rejected', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() }).eq('id', submissionId)
       if (error) throw error
       toast.success('Form rejected')
       fetchAllItems()
       setSelectedItem(null)
-    } catch (error) {
-      console.error('Error rejecting form:', error)
-      toast.error('Failed to reject form')
-    }
+    } catch { toast.error('Failed to reject form') }
   }
 
+  // --- Filtering ---
   const filteredItems = items.filter(item => {
-    // Spam folder: only show spam contacts
     if (category === 'spam') {
       if (item.type !== 'contact' || item.status !== 'spam') return false
     } else {
-      // All other folders: hide spam items
       if (item.status === 'spam') return false
-
       if (category !== 'all') {
-        const categoryMap: Record<InboxCategory, InboxItem['type'][]> = {
-          all: ['approval', 'application', 'form', 'contact'],
-          approvals: ['approval'],
-          applications: ['application'],
-          forms: ['form'],
-          contacts: ['contact'],
-          spam: ['contact'],
+        const map: Record<string, string[]> = {
+          approvals: ['approval'], applications: ['application'], forms: ['form'], contacts: ['contact'],
         }
-        if (!categoryMap[category].includes(item.type)) return false
+        if (map[category] && !map[category].includes(item.type)) return false
       }
     }
-
-    if (statusFilter === 'unread' && item.isRead) return false
-    if (statusFilter === 'read' && !item.isRead) return false
-    if (statusFilter === 'archived' && item.status !== 'archived') return false
-
     if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return (
-        item.title.toLowerCase().includes(query) ||
-        item.subtitle.toLowerCase().includes(query) ||
-        item.preview.toLowerCase().includes(query)
-      )
+      const q = searchQuery.toLowerCase()
+      return item.title.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q) || item.preview.toLowerCase().includes(q)
     }
-
     return true
   })
 
-  const getCounts = () => {
-    const nonSpam = items.filter(i => i.status !== 'spam')
-    return {
-      all: nonSpam.length,
-      approvals: nonSpam.filter(i => i.type === 'approval').length,
-      applications: nonSpam.filter(i => i.type === 'application').length,
-      forms: nonSpam.filter(i => i.type === 'form').length,
-      contacts: nonSpam.filter(i => i.type === 'contact').length,
-      spam: items.filter(i => i.status === 'spam').length,
-      unread: nonSpam.filter(i => !i.isRead).length,
-    }
+  const nonSpam = items.filter(i => i.status !== 'spam')
+  const counts = {
+    all: nonSpam.length,
+    approvals: nonSpam.filter(i => i.type === 'approval').length,
+    applications: nonSpam.filter(i => i.type === 'application').length,
+    forms: nonSpam.filter(i => i.type === 'form').length,
+    contacts: nonSpam.filter(i => i.type === 'contact').length,
+    spam: items.filter(i => i.status === 'spam').length,
   }
-
-  const counts = getCounts()
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr)
@@ -372,256 +298,164 @@ const InboxPage = () => {
     const diffMins = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMs / 3600000)
     const diffDays = Math.floor(diffMs / 86400000)
-
+    if (diffMins < 1) return 'Just now'
     if (diffMins < 60) return `${diffMins}m ago`
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
     return date.toLocaleDateString()
   }
 
+  // --- Detail View ---
   const renderDetailView = () => {
     if (!selectedItem) return null
-
-    const data = selectedItem.data as Record<string, unknown>
+    const data = selectedItem.data as Record<string, any>
 
     return (
-      <div className="h-full flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${getTypeColor(selectedItem.type)}`}>
-              {(() => { const Icon = getTypeIcon(selectedItem.type); return <Icon className="w-5 h-5" /> })()}
+      <div className="h-[calc(100vh-120px)]">
+        <div className="bg-white rounded-xl shadow-sm border h-full flex flex-col">
+          {/* Header */}
+          <div className="px-6 py-4 border-b flex items-center gap-4">
+            <button
+              onClick={() => setSelectedItem(null)}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Back to list"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm ${getAvatarColor(selectedItem.title)}`}>
+              {getInitials(selectedItem.title)}
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="font-semibold text-gray-900">{selectedItem.title}</h2>
               <p className="text-sm text-gray-500">{selectedItem.subtitle}</p>
             </div>
-          </div>
-          <button
-            onClick={() => setSelectedItem(null)}
-            className="p-2 hover:bg-gray-100 rounded-lg"
-            aria-label="Close detail panel"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Clock className="w-4 h-4" />
-              {new Date(selectedItem.createdAt).toLocaleString()}
-            </div>
-
-            <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(selectedItem)}`}>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusBadge(selectedItem.status)}`}>
               {selectedItem.status}
             </span>
+          </div>
 
-            {/* Type-specific content */}
-            {selectedItem.type === 'approval' && (
-              <div className="space-y-3 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-gray-500">Email</label>
-                    <p className="font-medium">{data.email as string}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Role</label>
-                    <p className="font-medium capitalize">{data.role as string}</p>
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="max-w-3xl">
+              <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
+                <Clock className="w-4 h-4" />
+                {new Date(selectedItem.createdAt).toLocaleString()}
+              </div>
+
+              {/* Approval detail */}
+              {selectedItem.type === 'approval' && (
+                <div className="bg-gray-50 rounded-lg p-5 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><p className="text-xs text-gray-500 mb-1">Email</p><p className="font-medium">{data.email}</p></div>
+                    <div><p className="text-xs text-gray-500 mb-1">Role</p><p className="font-medium capitalize">{data.role}</p></div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {selectedItem.type === 'application' && (
-              <div className="space-y-3 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-gray-500">Email</label>
-                    <p className="font-medium">{data.email as string}</p>
+              {/* Application detail */}
+              {selectedItem.type === 'application' && (
+                <div className="bg-gray-50 rounded-lg p-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div><p className="text-xs text-gray-500 mb-1">Email</p><p className="font-medium">{data.email}</p></div>
+                    <div><p className="text-xs text-gray-500 mb-1">Phone</p><p className="font-medium">{data.phone}</p></div>
+                    <div><p className="text-xs text-gray-500 mb-1">Position</p><p className="font-medium">{data.position_applied}</p></div>
+                    <div><p className="text-xs text-gray-500 mb-1">Experience</p><p className="font-medium">{data.experience_years} years</p></div>
                   </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Phone</label>
-                    <p className="font-medium">{data.phone as string}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Position</label>
-                    <p className="font-medium">{data.position_applied as string}</p>
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500">Experience</label>
-                    <p className="font-medium">{data.experience_years as number} years</p>
-                  </div>
+                  {data.cover_letter && (
+                    <div><p className="text-xs text-gray-500 mb-1">Cover Letter</p><p className="text-gray-700 whitespace-pre-wrap">{data.cover_letter}</p></div>
+                  )}
+                  {data.resume_url && (
+                    <a href={data.resume_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 font-medium">
+                      <FileText className="w-4 h-4" /> View Resume
+                    </a>
+                  )}
                 </div>
-                {data.cover_letter && (
-                  <div>
-                    <label className="text-xs text-gray-500">Cover Letter</label>
-                    <p className="mt-1 text-gray-700 whitespace-pre-wrap">{data.cover_letter as string}</p>
-                  </div>
-                )}
-                {data.resume_url && (
-                  <a
-                    href={data.resume_url as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700"
-                  >
-                    <FileText className="w-4 h-4" />
-                    View Resume
-                  </a>
-                )}
-              </div>
-            )}
+              )}
 
-            {selectedItem.type === 'contact' && (
-              <div className="space-y-3 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs text-gray-500">Email</label>
-                    <p className="font-medium">{data.email as string}</p>
-                  </div>
-                  {data.phone && (
+              {/* Contact detail */}
+              {selectedItem.type === 'contact' && (
+                <div className="space-y-4">
+                  {selectedItem.status === 'spam' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1">
+                        <ShieldAlert className="w-4 h-4" />
+                        Flagged as Spam (score: {data.spam_score ?? 'N/A'}/100)
+                      </div>
+                      {Array.isArray(data.spam_reasons) && data.spam_reasons.length > 0 && (
+                        <ul className="text-xs text-red-600 list-disc list-inside space-y-0.5">
+                          {data.spam_reasons.map((r: string, i: number) => <li key={i}>{r}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                  <div className="bg-gray-50 rounded-lg p-5">
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div><p className="text-xs text-gray-500 mb-1">Email</p><p className="font-medium">{data.email}</p></div>
+                      {data.phone && <div><p className="text-xs text-gray-500 mb-1">Phone</p><p className="font-medium">{data.phone}</p></div>}
+                    </div>
                     <div>
-                      <label className="text-xs text-gray-500">Phone</label>
-                      <p className="font-medium">{data.phone as string}</p>
+                      <p className="text-xs text-gray-500 mb-2">Message</p>
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{data.message}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Form detail */}
+              {selectedItem.type === 'form' && (
+                <div className="space-y-4">
+                  {data.signed_pdf_url ? (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">Signed Document</p>
+                      <div className="border rounded-lg overflow-hidden bg-gray-50">
+                        <iframe src={data.signed_pdf_url} className="w-full h-[500px]" title="Signed PDF Preview" />
+                      </div>
+                      <a href={data.signed_pdf_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 mt-3 font-medium">
+                        <FileText className="w-4 h-4" /> Open in New Tab
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-5">
+                      <p className="text-xs text-gray-500 mb-2">Submitted Data</p>
+                      <pre className="text-sm overflow-x-auto">{JSON.stringify(data.data, null, 2)}</pre>
                     </div>
                   )}
                 </div>
-                {selectedItem.status === 'spam' && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1">
-                      <ShieldAlert className="w-4 h-4" />
-                      Flagged as Spam (score: {(data.spam_score as number) ?? 'N/A'}/100)
-                    </div>
-                    {Array.isArray(data.spam_reasons) && (data.spam_reasons as string[]).length > 0 && (
-                      <ul className="text-xs text-red-600 list-disc list-inside space-y-0.5">
-                        {(data.spam_reasons as string[]).map((reason, i) => (
-                          <li key={i}>{reason}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-                <div>
-                  <label className="text-xs text-gray-500">Message</label>
-                  <p className="mt-1 text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
-                    {data.message as string}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {selectedItem.type === 'form' && (
-              <div className="space-y-3 mt-4">
-                {(data as { signed_pdf_url?: string }).signed_pdf_url ? (
-                  <div>
-                    <label className="text-xs text-gray-500 mb-2 block">Signed Document</label>
-                    <div className="border rounded-lg overflow-hidden bg-gray-50">
-                      <iframe
-                        src={(data as { signed_pdf_url: string }).signed_pdf_url}
-                        className="w-full h-[500px]"
-                        title="Signed PDF Preview"
-                      />
-                    </div>
-                    <a
-                      href={(data as { signed_pdf_url: string }).signed_pdf_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 text-orange-600 hover:text-orange-700 mt-3"
-                    >
-                      <FileText className="w-4 h-4" />
-                      Open in New Tab
-                    </a>
-                  </div>
-                ) : (
-                  <div>
-                    <label className="text-xs text-gray-500">Submitted Data</label>
-                    <pre className="mt-1 text-sm bg-gray-50 p-4 rounded-lg overflow-x-auto">
-                      {JSON.stringify(data.data, null, 2)}
-                    </pre>
-                  </div>
-                )}
-                              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="p-4 border-t bg-gray-50">
-          <div className="flex gap-2">
+          {/* Actions bar */}
+          <div className="px-6 py-4 border-t bg-gray-50 flex gap-2 flex-wrap">
             {selectedItem.type === 'approval' && selectedItem.status === 'pending' && (
               <>
-                <Button onClick={() => handleApproveUser(selectedItem.id)} className="flex-1">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Approve
-                </Button>
-                <Button variant="outline" onClick={() => handleRejectUser(selectedItem.id)} className="flex-1">
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
-                </Button>
+                <Button onClick={() => handleApproveUser(selectedItem.id)}><CheckCircle className="w-4 h-4 mr-2" />Approve</Button>
+                <Button variant="outline" onClick={() => handleRejectUser(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
               </>
             )}
-
             {selectedItem.type === 'application' && selectedItem.status === 'pending' && (
               <>
-                <Button onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'reviewed')}>
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Mark Reviewed
-                </Button>
-                <Button variant="outline" onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'interviewed')}>
-                  Interview
-                </Button>
-                <Button variant="outline" onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'hired')}>
-                  Hire
-                </Button>
-                <Button variant="outline" onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'rejected')}>
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
-                </Button>
+                <Button onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'reviewed')}><CheckCircle className="w-4 h-4 mr-2" />Reviewed</Button>
+                <Button variant="outline" onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'interviewed')}>Interview</Button>
+                <Button variant="outline" onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'hired')}>Hire</Button>
+                <Button variant="outline" onClick={() => handleUpdateApplicationStatus(selectedItem.id, 'rejected')}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
               </>
             )}
-
             {selectedItem.type === 'contact' && selectedItem.status === 'spam' && (
-              <Button onClick={() => handleUpdateContactStatus(selectedItem.id, 'new')}>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Not Spam — Move to Inbox
-              </Button>
+              <Button onClick={() => handleUpdateContactStatus(selectedItem.id, 'new')}><CheckCircle className="w-4 h-4 mr-2" />Not Spam</Button>
             )}
-
             {selectedItem.type === 'contact' && selectedItem.status !== 'archived' && selectedItem.status !== 'spam' && (
               <>
-                {selectedItem.status === 'new' && (
-                  <Button onClick={() => handleUpdateContactStatus(selectedItem.id, 'read')}>
-                    <MailOpen className="w-4 h-4 mr-2" />
-                    Mark Read
-                  </Button>
-                )}
-                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'replied')}>
-                  <Reply className="w-4 h-4 mr-2" />
-                  Mark Replied
-                </Button>
-                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'spam')}>
-                  <ShieldAlert className="w-4 h-4 mr-2" />
-                  Spam
-                </Button>
-                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'archived')}>
-                  <Archive className="w-4 h-4 mr-2" />
-                  Archive
-                </Button>
+                {selectedItem.status === 'new' && <Button onClick={() => handleUpdateContactStatus(selectedItem.id, 'read')}><MailOpen className="w-4 h-4 mr-2" />Mark Read</Button>}
+                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'replied')}><Reply className="w-4 h-4 mr-2" />Replied</Button>
+                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'spam')}><ShieldAlert className="w-4 h-4 mr-2" />Spam</Button>
+                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'archived')}><Archive className="w-4 h-4 mr-2" />Archive</Button>
               </>
             )}
-
             {selectedItem.type === 'form' && selectedItem.status === 'pending' && (
               <>
-                <Button onClick={() => handleApproveForm(selectedItem.id)} className="flex-1">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Approve
-                </Button>
-                <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)} className="flex-1">
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
-                </Button>
+                <Button onClick={() => handleApproveForm(selectedItem.id)}><CheckCircle className="w-4 h-4 mr-2" />Approve</Button>
+                <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
               </>
             )}
           </div>
@@ -630,6 +464,10 @@ const InboxPage = () => {
     )
   }
 
+  // Show detail view when an item is selected
+  if (selectedItem) return renderDetailView()
+
+  // --- Main list view ---
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
@@ -639,138 +477,133 @@ const InboxPage = () => {
     )
   }
 
+  const categories: { key: InboxCategory; label: string; icon: typeof Inbox; count: number; color: string }[] = [
+    { key: 'all', label: 'Inbox', icon: Inbox, count: counts.all, color: 'bg-orange-500' },
+    { key: 'approvals', label: 'Approvals', icon: UserPlus, count: counts.approvals, color: 'bg-blue-500' },
+    { key: 'applications', label: 'Applications', icon: Briefcase, count: counts.applications, color: 'bg-purple-500' },
+    { key: 'forms', label: 'Forms', icon: FileText, count: counts.forms, color: 'bg-green-500' },
+    { key: 'contacts', label: 'Messages', icon: MessageSquare, count: counts.contacts, color: 'bg-teal-500' },
+    { key: 'spam', label: 'Spam', icon: ShieldAlert, count: counts.spam, color: 'bg-red-500' },
+  ]
+
   return (
-    <div className="h-[calc(100vh-120px)]">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
-        <p className="text-gray-600">Manage approvals, applications, and messages</p>
+    <div className="h-[calc(100vh-120px)] flex flex-col">
+      {/* Page header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
+          <p className="text-gray-500 text-sm">Manage approvals, applications, and messages</p>
+        </div>
+        <button
+          onClick={fetchAllItems}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Refresh inbox"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
       </div>
 
-      <div className="flex h-[calc(100%-80px)] bg-white rounded-xl shadow-sm border overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 border-r bg-gray-50 flex flex-col">
-          <div className="p-4">
+      <div className="flex flex-1 gap-0 bg-white rounded-xl shadow-sm border overflow-hidden min-h-0">
+        {/* Left sidebar */}
+        <div className="w-56 border-r flex flex-col bg-gray-50/50">
+          {/* Search */}
+          <div className="p-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
+              <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search..."
-                className="pl-9"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
               />
             </div>
           </div>
 
-          <nav className="flex-1 p-2 space-y-1">
-            {[
-              { key: 'all', label: 'All Items', icon: Inbox, count: counts.all },
-              { key: 'approvals', label: 'Approvals', icon: UserPlus, count: counts.approvals },
-              { key: 'applications', label: 'Applications', icon: Briefcase, count: counts.applications },
-              { key: 'forms', label: 'Form Submissions', icon: FileText, count: counts.forms },
-              { key: 'contacts', label: 'Contact Messages', icon: MessageSquare, count: counts.contacts },
-              { key: 'spam', label: 'Spam', icon: ShieldAlert, count: counts.spam },
-            ].map((item) => (
+          {/* Folders */}
+          <nav className="flex-1 px-2 pb-3 space-y-0.5">
+            {categories.map((cat) => (
               <button
-                key={item.key}
-                onClick={() => setCategory(item.key as InboxCategory)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors ${
-                  category === item.key
-                    ? 'bg-orange-100 text-orange-700'
+                key={cat.key}
+                onClick={() => setCategory(cat.key)}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  category === cat.key
+                    ? 'bg-orange-50 text-orange-700 font-medium'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <span className="flex items-center gap-2">
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
+                <span className="flex items-center gap-2.5">
+                  <cat.icon className="w-4 h-4" />
+                  {cat.label}
                 </span>
-                {item.count > 0 && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    category === item.key ? 'bg-orange-200' : 'bg-gray-200'
-                  }`}>
-                    {item.count}
+                {cat.count > 0 && (
+                  <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
+                    {cat.count}
                   </span>
                 )}
               </button>
             ))}
           </nav>
-
-          <div className="p-4 border-t">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ItemStatus | 'all')}
-              className="w-full px-3 py-2 border rounded-lg text-sm"
-            >
-              <option value="all">All Status</option>
-              <option value="unread">Unread ({counts.unread})</option>
-              <option value="read">Read</option>
-              <option value="archived">Archived</option>
-            </select>
-          </div>
         </div>
 
-        {/* Message List */}
-        <div className="w-96 border-r flex flex-col">
-          <div className="p-4 border-b">
+        {/* Message list */}
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* List header */}
+          <div className="px-5 py-3 border-b flex items-center justify-between">
             <h2 className="font-semibold text-gray-900">
-              {category === 'all' ? 'All Items' : category.charAt(0).toUpperCase() + category.slice(1)}
+              {categories.find(c => c.key === category)?.label || 'Inbox'}
             </h2>
-            <p className="text-sm text-gray-500">{filteredItems.length} items</p>
+            <span className="text-sm text-gray-500">{filteredItems.length} messages</span>
           </div>
 
+          {/* Rows */}
           <div className="flex-1 overflow-y-auto">
             {filteredItems.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <Inbox className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No items found</p>
+              <div className="flex flex-col items-center justify-center h-full text-gray-400">
+                <Mail className="w-12 h-12 mb-3 opacity-40" />
+                <p className="text-sm">No messages</p>
               </div>
             ) : (
-              filteredItems.map((item) => {
-                const Icon = getTypeIcon(item.type)
-                return (
-                  <button
-                    key={`${item.type}-${item.id}`}
-                    onClick={() => setSelectedItem(item)}
-                    className={`w-full p-4 border-b text-left hover:bg-gray-50 transition-colors ${
-                      selectedItem?.id === item.id ? 'bg-orange-50' : ''
-                    } ${!item.isRead ? 'bg-blue-50/50' : ''}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${getTypeColor(item.type)}`}>
-                        <Icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`font-medium truncate ${!item.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
-                            {item.title}
-                          </span>
-                          <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                            {formatDate(item.createdAt)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 truncate">{item.subtitle}</p>
-                        <p className="text-xs text-gray-400 truncate mt-1">{item.preview}</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              filteredItems.map((item) => (
+                <button
+                  key={`${item.type}-${item.id}`}
+                  onClick={() => setSelectedItem(item)}
+                  className={`w-full flex items-center gap-4 px-5 py-3.5 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
+                    !item.isRead ? 'bg-white' : 'bg-gray-50/30'
+                  }`}
+                >
+                  {/* Avatar */}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 ${getAvatarColor(item.title)}`}>
+                    {getInitials(item.title)}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-semibold truncate ${!item.isRead ? 'text-gray-900' : 'text-gray-600'}`}>
+                        {item.title}
+                      </span>
+                      <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusBadge(item.status)}`}>
+                        {item.status}
+                      </span>
                     </div>
-                  </button>
-                )
-              })
+                    <p className="text-sm text-gray-900 truncate mt-0.5">
+                      <span className={!item.isRead ? 'font-semibold' : 'font-normal'}>
+                        {item.subtitle}
+                      </span>
+                      <span className="text-gray-400 mx-1.5">&mdash;</span>
+                      <span className="text-gray-500 font-normal">{item.preview}</span>
+                    </p>
+                  </div>
+
+                  {/* Time */}
+                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">
+                    {formatDate(item.createdAt)}
+                  </span>
+                </button>
+              ))
             )}
           </div>
-        </div>
-
-        {/* Detail View */}
-        <div className="flex-1 bg-white">
-          {selectedItem ? (
-            renderDetailView()
-          ) : (
-            <div className="h-full flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <Mail className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p>Select an item to view details</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
