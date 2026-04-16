@@ -323,7 +323,22 @@ export async function generateAcroFilledPDF(
     }
   }
 
-  form.flatten()
+  // Update appearances before flatten so text is rendered in the PDF.
+  // Without this, some viewers show blank fields because pdf-lib doesn't auto-generate
+  // appearance streams for setText() calls unless NeedAppearances is set.
+  try {
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    form.updateFieldAppearances(helvetica)
+  } catch (e) {
+    console.warn('Failed to update field appearances:', e)
+  }
+
+  try {
+    form.flatten()
+  } catch (e) {
+    console.warn('Failed to flatten form (continuing):', e)
+  }
+
   return pdfDoc.save()
 }
 

@@ -272,6 +272,7 @@ const EducatorAreaPage = () => {
               fields={schema.fields!}
               formName={selectedForm.form_name}
               onSubmit={handleFormSubmit}
+              onDownload={handleFormDownload}
               pdfRotation={schema.pdfRotation ?? 0}
             />
           )}

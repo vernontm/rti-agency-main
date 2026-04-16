@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import Button from '../ui/Button'
-import { Send } from 'lucide-react'
+import { Send, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { PDFFormField } from './PDFFormBuilder'
 
@@ -13,6 +13,7 @@ interface PDFFormViewerProps {
   fields: PDFFormField[]
   formName: string
   onSubmit: (values: Record<string, string | boolean | { text: string; font: string }>) => void
+  onDownload?: (values: Record<string, string | boolean | { text: string; font: string }>) => Promise<void> | void
   readOnly?: boolean
   initialValues?: Record<string, string | boolean | { text: string; font: string }>
   pdfRotation?: number
@@ -27,7 +28,7 @@ const signatureFonts = [
 
 type FieldValue = string | boolean | { text: string; font: string }
 
-const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, initialValues = {}, pdfRotation = 0 }: PDFFormViewerProps) => {
+const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, onDownload, readOnly = false, initialValues = {}, pdfRotation = 0 }: PDFFormViewerProps) => {
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [totalPages, setTotalPages] = useState(0)
   const [scale, setScale] = useState(1.0)
@@ -35,6 +36,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }[]>([])
   const [values, setValues] = useState<Record<string, FieldValue>>(initialValues as Record<string, FieldValue>)
   const [submitting, setSubmitting] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [activeSignatureField, setActiveSignatureField] = useState<string | null>(null)
   
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([])
@@ -154,6 +156,19 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
       await onSubmit(values)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    if (!onDownload) return
+    setDownloading(true)
+    try {
+      await onDownload(values)
+    } catch (err) {
+      console.error('Download failed:', err)
+      toast.error('Failed to download form')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -347,10 +362,18 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
                 </span>
               )}
             </div>
-            <Button onClick={handleSubmit} loading={submitting}>
-              <Send className="w-4 h-4 mr-2" />
-              Submit Form
-            </Button>
+            <div className="flex gap-2">
+              {onDownload && (
+                <Button variant="outline" onClick={handleDownload} loading={downloading}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              )}
+              <Button onClick={handleSubmit} loading={submitting}>
+                <Send className="w-4 h-4 mr-2" />
+                Submit Form
+              </Button>
+            </div>
           </div>
         </div>
       )}
