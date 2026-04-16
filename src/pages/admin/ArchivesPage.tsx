@@ -242,8 +242,8 @@ const ArchivesPage = () => {
   ]
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
-      <div className="flex items-center justify-between mb-4">
+    <div className="-m-6 h-screen flex flex-col bg-white">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Archives</h1>
           <p className="text-gray-500 text-sm">View and manage all completed submissions</p>
@@ -256,7 +256,7 @@ const ArchivesPage = () => {
         )}
       </div>
 
-      <div className="flex flex-1 bg-white rounded-xl shadow-sm border overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-56 border-r flex flex-col bg-gray-50/50">
           <div className="p-3">

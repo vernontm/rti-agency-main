@@ -311,8 +311,7 @@ const InboxPage = () => {
     const data = selectedItem.data as Record<string, any>
 
     return (
-      <div className="h-[calc(100vh-120px)]">
-        <div className="bg-white rounded-xl shadow-sm border h-full flex flex-col">
+      <div className="-m-6 h-screen flex flex-col bg-white">
           {/* Header */}
           <div className="px-6 py-4 border-b flex items-center gap-4">
             <button
@@ -459,7 +458,6 @@ const InboxPage = () => {
               </>
             )}
           </div>
-        </div>
       </div>
     )
   }
@@ -487,9 +485,9 @@ const InboxPage = () => {
   ]
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
+    <div className="-m-6 h-[calc(100vh-0px)] flex flex-col bg-white">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
           <p className="text-gray-500 text-sm">Manage approvals, applications, and messages</p>
@@ -504,7 +502,7 @@ const InboxPage = () => {
         </button>
       </div>
 
-      <div className="flex flex-1 gap-0 bg-white rounded-xl shadow-sm border overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left sidebar */}
         <div className="w-56 border-r flex flex-col bg-gray-50/50">
           {/* Search */}

@@ -227,9 +227,9 @@ const AdvisoriesManagementPage = () => {
   })
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
+    <div className="-m-6 h-screen flex flex-col bg-white">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between px-6 py-4 border-b">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">File Manager</h1>
           <p className="text-gray-500 text-sm">Upload and manage advisories and downloads for educators</p>
@@ -240,7 +240,7 @@ const AdvisoriesManagementPage = () => {
         </Button>
       </div>
 
-      <div className="flex flex-1 bg-white rounded-xl shadow-sm border overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-56 border-r flex flex-col bg-gray-50/50">
           <nav className="flex-1 p-2 space-y-0.5">
