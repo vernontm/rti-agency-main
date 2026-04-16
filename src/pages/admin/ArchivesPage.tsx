@@ -281,25 +281,27 @@ const ArchivesPage = () => {
           </div>
 
           {/* Category nav */}
-          <nav className="flex-1 px-2 pb-3 space-y-0.5">
-            {archiveCategories.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setTypeFilter(cat.key as ArchiveType)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  typeFilter === cat.key ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <cat.icon className="w-4 h-4" />
-                  {cat.label}
-                </span>
-                {cat.count > 0 && (
-                  <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
-                    {cat.count}
+          <nav className="flex-1 px-2 pb-3">
+            {archiveCategories.map((cat, idx) => (
+              <div key={cat.key}>
+                {idx > 0 && <div className="mx-2 border-t border-gray-200" />}
+                <button
+                  onClick={() => setTypeFilter(cat.key as ArchiveType)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    typeFilter === cat.key ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <cat.icon className="w-4 h-4" />
+                    {cat.label}
                   </span>
-                )}
-              </button>
+                  {cat.count > 0 && (
+                    <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
+                      {cat.count}
+                    </span>
+                  )}
+                </button>
+              </div>
             ))}
           </nav>
         </div>

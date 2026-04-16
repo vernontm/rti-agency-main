@@ -263,11 +263,10 @@ const AdvisoriesManagementPage = () => {
           </div>
 
           {/* Category nav */}
-          <nav className="flex-1 px-2 pb-3 space-y-0.5">
+          <nav className="flex-1 px-2 pb-3">
             {fileCategories.map((cat, idx) => (
               <div key={cat.key}>
-                {/* Divider between groups: after Downloads (idx 2) and before Visible */}
-                {idx === 3 && <div className="my-2 border-t border-gray-200" />}
+                {idx > 0 && <div className="mx-2 border-t border-gray-200" />}
                 <button
                   onClick={() => setFileCategoryFilter(cat.key)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
