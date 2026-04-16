@@ -117,6 +117,42 @@ const EducatorAreaPage = () => {
     }
   }
 
+  const handleFormDownload = async (values: Record<string, string | boolean | { text: string; font: string }>) => {
+    if (!selectedForm) return
+
+    const schema = selectedForm.fields_schema
+    const pdfUrl = schema.pdf_url || schema.pdfUrl
+
+    try {
+      toast.loading('Generating PDF...', { id: 'pdf-dl' })
+
+      let pdfBytes: Uint8Array
+      if (schema.acroForm) {
+        pdfBytes = await generateAcroFilledPDF(pdfUrl!, values as Record<string, string | boolean>)
+      } else {
+        pdfBytes = await generateFilledPDF(pdfUrl!, schema.fields!, values)
+      }
+
+      // Trigger browser download
+      const pdfBlob = uint8ArrayToBlob(pdfBytes)
+      const blobUrl = URL.createObjectURL(pdfBlob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = `${selectedForm.form_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+
+      toast.dismiss('pdf-dl')
+      toast.success('Downloaded filled PDF')
+    } catch (error) {
+      toast.dismiss('pdf-dl')
+      console.error('Error downloading form:', error)
+      toast.error('Failed to download form')
+    }
+  }
+
   const handleFormSubmit = async (values: Record<string, string | boolean | { text: string; font: string }>) => {
     if (!selectedForm || !profile) return
 
@@ -228,6 +264,7 @@ const EducatorAreaPage = () => {
               formName={selectedForm.form_name}
               mode="employee"
               onSubmit={handleFormSubmit}
+              onDownload={handleFormDownload}
             />
           ) : (
             <PDFFormViewer

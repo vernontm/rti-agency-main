@@ -198,12 +198,21 @@ export async function generateAcroFilledPDF(
     return undefined
   }
 
-  // Fill AcroForm fields from collected values
+  // Helpers to detect special field roles
+  const isManagerFieldName = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
+  const isParentFieldName = (name: string) => /parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name)
+
+  // Fill AcroForm fields from collected values (skip manager & parent fields)
   for (const field of allFields) {
     const name = field.getName()
     const value = findValue(name)
 
     if (value === undefined || value === null || value === '') continue
+
+    // Skip manager fields — handled below
+    if (isManagerFieldName(name)) continue
+    // Skip parent/client fields — they are blank for printing
+    if (isParentFieldName(name)) continue
 
     try {
       const fieldType = field.constructor.name
@@ -214,9 +223,9 @@ export async function generateAcroFilledPDF(
         }
       } else if (fieldType === 'PDFTextField') {
         const tf = form.getTextField(name)
-        // If this is a signature field, use signature font
+        // If this is an employee signature field, use signature font
         if (/sig/i.test(name) && signatureFont && values['_signature_text']) {
-          tf.setText(values['_signature_text'] as string)
+          tf.setText(String(value))
           tf.updateAppearances(signatureFont)
         } else {
           tf.setText(String(value))
@@ -226,9 +235,6 @@ export async function generateAcroFilledPDF(
       console.warn(`Could not fill field "${name}":`, e)
     }
   }
-
-  // Helper to detect manager fields
-  const isManagerFieldName = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
 
   // Load manager signature font if provided
   const mgrSigFontCss = values['_manager_signature_font'] as string
@@ -242,30 +248,16 @@ export async function generateAcroFilledPDF(
     }
   }
 
-  // Fill employee signature into non-manager sig fields
+  // Fallback: fill any non-manager sig fields that don't yet have a value using _signature_text
+  // (Only applies if the caller didn't explicitly fill each sig field by name.)
   if (values['_signature_text']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (/sig/i.test(name) && !isManagerFieldName(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
+      if (/sig/i.test(name) && !isManagerFieldName(name) && !isParentFieldName(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
         try {
           const tf = form.getTextField(name)
           tf.setText(values['_signature_text'] as string)
           if (signatureFont) tf.updateAppearances(signatureFont)
-        } catch (e) {
-          // Field might already be filled
-        }
-      }
-    }
-  }
-
-  // Fill employee date into non-manager date fields
-  if (values['_signature_date']) {
-    for (const field of allFields) {
-      const name = field.getName()
-      if (/date/i.test(name) && !isManagerFieldName(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
-        try {
-          const tf = form.getTextField(name)
-          tf.setText(values['_signature_date'] as string)
         } catch (e) {
           // Field might already be filled
         }
@@ -304,9 +296,10 @@ export async function generateAcroFilledPDF(
     }
   }
 
-  // Fill manager approved/rejected checkbox fields
+  // Fill manager approved/rejected checkbox fields (but skip parent fields)
   for (const field of allFields) {
     const name = field.getName()
+    if (isParentFieldName(name)) continue
     if (isManagerFieldName(name) || /approved/i.test(name) || /rejected/i.test(name)) {
       const val = findValue(name)
       if (val !== undefined && field.constructor.name === 'PDFCheckBox') {

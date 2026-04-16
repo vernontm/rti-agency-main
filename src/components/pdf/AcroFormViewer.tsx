@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import Button from '../ui/Button'
-import { Send, RefreshCw, ZoomIn, ZoomOut, Lock } from 'lucide-react'
+import { Send, RefreshCw, ZoomIn, ZoomOut, Lock, Download, Printer } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // Set worker path
@@ -29,19 +29,8 @@ interface AnnotationField {
 
 // Field role detection helpers
 const isManagerField = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
-const isEmployeeSignatureField = (name: string) => /sig/i.test(name) && !isManagerField(name)
-const isEmployeeDateField = (name: string, allFields: AnnotationField[]) => {
-  if (!(/date/i.test(name))) return false
-  if (isManagerField(name)) return false
-  // If the field name explicitly references employee, it's an employee date
-  if (/employee/i.test(name)) return true
-  // If it's just "Date" or "Date_N", check if it's NOT near a manager field
-  // For simple heuristic: if there's a manager date field, this one is employee's
-  const hasManagerDate = allFields.some(f => /date/i.test(f.fieldName) && isManagerField(f.fieldName))
-  if (hasManagerDate) return true
-  // If no manager date exists, all date fields near non-manager sig fields are employee dates
-  return true
-}
+const isParentField = (name: string) => /parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name)
+const isEmployeeSignatureField = (name: string) => /sig/i.test(name) && !isManagerField(name) && !isParentField(name)
 
 export type AcroFormMode = 'employee' | 'manager-review' | 'readonly'
 
@@ -49,12 +38,25 @@ interface AcroFormViewerProps {
   pdfUrl: string
   formName: string
   onSubmit: (values: Record<string, string | boolean>) => void
+  onDownload?: (values: Record<string, string | boolean>) => Promise<void> | void
   readOnly?: boolean
   mode?: AcroFormMode
   initialValues?: Record<string, string | boolean>
 }
 
-const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = 'employee', initialValues }: AcroFormViewerProps) => {
+interface SignatureState {
+  text: string
+  font: string
+  printName: string
+}
+
+const defaultSigState = (): SignatureState => ({
+  text: '',
+  font: signatureFonts[0].fontFamily,
+  printName: '',
+})
+
+const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = false, mode = 'employee', initialValues }: AcroFormViewerProps) => {
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [totalPages, setTotalPages] = useState(0)
   const [scale, setScale] = useState(1.0)
@@ -63,10 +65,9 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
   const [annotationFields, setAnnotationFields] = useState<AnnotationField[]>([])
   const [values, setValues] = useState<Record<string, string | boolean>>(initialValues || {})
   const [submitting, setSubmitting] = useState(false)
-  const [signatureText, setSignatureText] = useState('')
-  const [signatureFont, setSignatureFont] = useState(signatureFonts[0].fontFamily)
-  const [signatureDate, setSignatureDate] = useState(new Date().toISOString().split('T')[0])
-  const [printName, setPrintName] = useState('')
+  const [downloading, setDownloading] = useState(false)
+  // Multiple signature slots — keyed by group index (0, 1, 2...)
+  const [signatures, setSignatures] = useState<Record<number, SignatureState>>({ 0: defaultSigState() })
 
   const viewerRef = useRef<HTMLDivElement>(null)
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([])
@@ -210,27 +211,74 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
     toast.success('Fields realigned')
   }
 
+  // --- Signature group detection ---
+  // Each employee signature field gets its own group. Dates are independent (filled via date picker).
+  const employeeSigFields = annotationFields.filter(f => isEmployeeSignatureField(f.fieldName))
+
+  // Sort sig fields by page then Y position (top to bottom)
+  const sortedSigFields = [...employeeSigFields].sort((a, b) => {
+    if (a.page !== b.page) return a.page - b.page
+    return b.rect[1] - a.rect[1] // Higher Y = higher on page in PDF coords
+  })
+
+  // Build a map: sig field name → group index
+  const sigFieldGroupMap = new Map<string, number>()
+  sortedSigFields.forEach((sf, idx) => {
+    sigFieldGroupMap.set(sf.fieldName, idx)
+  })
+
+  const numSigGroups = sortedSigFields.length
+
+  // Ensure we have signature state for all groups
+  useEffect(() => {
+    const needed = Math.max(numSigGroups, 1)
+    if (needed > Object.keys(signatures).length) {
+      setSignatures(prev => {
+        const updated = { ...prev }
+        for (let i = 0; i < needed; i++) {
+          if (!updated[i]) updated[i] = defaultSigState()
+        }
+        return updated
+      })
+    }
+  }, [numSigGroups])
+
+  const updateSignature = (groupIdx: number, updates: Partial<SignatureState>) => {
+    setSignatures(prev => ({
+      ...prev,
+      [groupIdx]: { ...(prev[groupIdx] || defaultSigState()), ...updates },
+    }))
+  }
+
   // Determine field editability and role
-  const getFieldRole = (field: AnnotationField): 'regular' | 'employee-sig' | 'employee-date' | 'manager' => {
+  const getFieldRole = (field: AnnotationField): 'regular' | 'employee-sig' | 'date' | 'manager' | 'parent' => {
     if (isManagerField(field.fieldName)) return 'manager'
+    if (isParentField(field.fieldName)) return 'parent'
     if (isEmployeeSignatureField(field.fieldName)) return 'employee-sig'
-    if (isEmployeeDateField(field.fieldName, annotationFields)) return 'employee-date'
+    if (/date/i.test(field.fieldName)) return 'date'
     return 'regular'
+  }
+
+  const getFieldSigGroup = (field: AnnotationField): number => {
+    return sigFieldGroupMap.get(field.fieldName) ?? 0
   }
 
   const isFieldDisabled = (field: AnnotationField): boolean => {
     if (isReadonlyMode) return true
     const role = getFieldRole(field)
 
+    // Parent/client fields are always disabled — meant to be printed and filled by hand
+    if (role === 'parent') return true
+
     if (isEmployeeMode) {
-      // Employee can't fill manager fields or employee sig/date fields (those come from the bottom section)
       if (role === 'manager') return true
-      if (role === 'employee-sig' || role === 'employee-date') return true
+      if (role === 'employee-sig') return true // filled via section below
+      // date and regular are editable by employee
       return false
     }
 
     if (isManagerMode) {
-      // Manager can only fill manager fields
+      // Manager can edit manager fields only
       if (role === 'manager') return false
       return true
     }
@@ -242,68 +290,67 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
   const getDisplayValue = (field: AnnotationField): string | boolean | undefined => {
     const role = getFieldRole(field)
     const existing = values[field.fieldName]
+    const groupIdx = getFieldSigGroup(field)
+    const sig = signatures[groupIdx] || defaultSigState()
 
     if (isEmployeeMode) {
-      if (role === 'employee-sig' && signatureText) return signatureText
-      if (role === 'employee-date' && signatureDate) return signatureDate
+      if (role === 'employee-sig' && sig.text) return sig.text
     }
 
     return existing
   }
 
-  const handleSubmit = async () => {
+  // Build the final values object for submit/download/approve
+  const buildFinalValues = (): Record<string, string | boolean> => {
     const allValues: Record<string, string | boolean> = { ...values }
 
-    // Auto-fill employee signature/date fields into values
     if (isEmployeeMode) {
+      // Only fill employee signature fields from their group. Dates were entered manually.
       for (const field of annotationFields) {
         const role = getFieldRole(field)
-        if (role === 'employee-sig' && signatureText) {
-          allValues[field.fieldName] = signatureText
-        }
-        if (role === 'employee-date' && signatureDate) {
-          allValues[field.fieldName] = signatureDate
+        if (role === 'parent') continue // never fill parent/client fields
+        const groupIdx = getFieldSigGroup(field)
+        const sig = signatures[groupIdx] || defaultSigState()
+
+        if (role === 'employee-sig' && sig.text) {
+          allValues[field.fieldName] = sig.text
         }
       }
+      // Use first signature group for font metadata
+      const primary = signatures[0] || defaultSigState()
+      if (primary.text) {
+        allValues['_signature_text'] = primary.text
+        allValues['_signature_font'] = primary.font
+      }
+      if (primary.printName) allValues['_print_name'] = primary.printName
     }
 
-    // Auto-fill manager signature/date fields
     if (isManagerMode) {
+      const mgrSig = signatures[0] || defaultSigState()
+      const mgrDate = (values['_manager_sign_date'] as string) || ''
       for (const field of annotationFields) {
         if (isManagerField(field.fieldName)) {
-          if (/sig/i.test(field.fieldName) && signatureText) {
-            allValues[field.fieldName] = signatureText
+          if (/sig/i.test(field.fieldName) && mgrSig.text) {
+            allValues[field.fieldName] = mgrSig.text
           }
-          if (/date/i.test(field.fieldName) && signatureDate) {
-            allValues[field.fieldName] = signatureDate
+          if (/date/i.test(field.fieldName) && mgrDate) {
+            allValues[field.fieldName] = mgrDate
           }
         }
       }
+      allValues['_manager_signature_text'] = mgrSig.text
+      allValues['_manager_signature_font'] = mgrSig.font
+      allValues['_manager_signature_date'] = mgrDate
+      allValues['_manager_print_name'] = mgrSig.printName
     }
 
-    // Add signature metadata
-    if (signatureText) {
-      allValues['_signature_text'] = signatureText
-      allValues['_signature_font'] = signatureFont
-    }
-    if (signatureDate) {
-      allValues['_signature_date'] = signatureDate
-    }
-    if (printName) {
-      allValues['_print_name'] = printName
-    }
+    return allValues
+  }
 
-    // Tag the mode
-    if (isManagerMode) {
-      allValues['_manager_signature_text'] = signatureText
-      allValues['_manager_signature_font'] = signatureFont
-      allValues['_manager_signature_date'] = signatureDate
-      allValues['_manager_print_name'] = printName
-    }
-
+  const handleSubmit = async () => {
     setSubmitting(true)
     try {
-      await onSubmit(allValues)
+      await onSubmit(buildFinalValues())
     } catch (err) {
       console.error('Form submission failed:', err)
       toast.error('Failed to submit form')
@@ -312,11 +359,27 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
     }
   }
 
+  const handleDownload = async () => {
+    if (!onDownload) return
+    setDownloading(true)
+    try {
+      await onDownload(buildFinalValues())
+    } catch (err) {
+      console.error('Form download failed:', err)
+      toast.error('Failed to download form')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   // Get field overlay styles based on role
   const getFieldOverlayClasses = (field: AnnotationField): string => {
     const role = getFieldRole(field)
     const disabled = isFieldDisabled(field)
 
+    if (role === 'parent') {
+      return 'bg-purple-50/60 border border-purple-200 border-dashed cursor-not-allowed'
+    }
     if (disabled && role === 'manager' && isEmployeeMode) {
       return 'bg-gray-200/80 border border-gray-300 cursor-not-allowed'
     }
@@ -329,13 +392,9 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
     return 'bg-blue-50/70 border border-blue-200 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white/90'
   }
 
-  const signatureSectionTitle = isManagerMode ? 'Manager Signature & Date' : 'Employee Signature & Date'
-  const signatureSectionSubtitle = isManagerMode
-    ? 'Your signature will be applied to the Manager Signature and Date fields'
-    : 'Your signature will be applied to the Employee Signature and Date fields on the form'
-
-  // Count manager fields for showing the note
+  // Count fields for notices
   const managerFieldCount = annotationFields.filter(f => isManagerField(f.fieldName)).length
+  const parentFieldCount = annotationFields.filter(f => isParentField(f.fieldName)).length
 
   return (
     <div className="flex flex-col h-full">
@@ -386,6 +445,16 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
         </div>
       )}
 
+      {/* Parent/client fields notice */}
+      {isEmployeeMode && parentFieldCount > 0 && (
+        <div className="mb-4 flex items-center gap-3 px-4 py-3 bg-purple-50 rounded-lg text-sm text-purple-700">
+          <Printer className="w-4 h-4 flex-shrink-0" />
+          <span>
+            Parent/Client/Guardian signature fields will be left blank. Print the form and have them sign it by hand.
+          </span>
+        </div>
+      )}
+
       {/* PDF Viewer */}
       <div ref={viewerRef} className="flex-1 overflow-auto bg-gray-100 rounded-lg p-6">
         <div className="mx-auto space-y-4" style={{ width: 'fit-content', maxWidth: '100%' }}>
@@ -412,7 +481,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
                   const overlayClasses = getFieldOverlayClasses(field)
 
                   // Manager field locked overlay for employees
-                  if (disabled && fieldRole === 'manager' && isEmployeeMode) {
+                  if (fieldRole === 'manager' && isEmployeeMode) {
                     return (
                       <div
                         key={field.id}
@@ -425,24 +494,57 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
                     )
                   }
 
-                  // Employee sig/date fields — show auto-filled preview
-                  if (isEmployeeMode && (fieldRole === 'employee-sig' || fieldRole === 'employee-date')) {
-                    const previewText = fieldRole === 'employee-sig' ? (signatureText || '') : (signatureDate || '')
-                    const fontStyle = fieldRole === 'employee-sig' ? signatureFont : undefined
+                  // Parent/client fields — blank for printing
+                  if (fieldRole === 'parent') {
+                    return (
+                      <div
+                        key={field.id}
+                        className="absolute flex items-center justify-center bg-purple-50/60 border border-purple-200 border-dashed rounded-sm"
+                        style={style}
+                        title="Print and have parent/client sign"
+                      >
+                        <Printer className="w-3 h-3 text-purple-400" />
+                      </div>
+                    )
+                  }
+
+                  // Employee sig fields — show auto-filled preview from their group
+                  if (isEmployeeMode && fieldRole === 'employee-sig') {
+                    const groupIdx = getFieldSigGroup(field)
+                    const sig = signatures[groupIdx] || defaultSigState()
                     return (
                       <div
                         key={field.id}
                         className="absolute px-1 bg-amber-50/70 border border-amber-300 rounded-sm flex items-center"
                         style={{
                           ...style,
-                          fontFamily: fontStyle,
+                          fontFamily: sig.font,
                           fontSize: Math.min((style.height as number) * 0.65, 11),
-                          color: fieldRole === 'employee-sig' ? '#1e3a5f' : '#374151',
+                          color: '#1e3a5f',
                         }}
-                        title={fieldRole === 'employee-sig' ? 'Auto-filled from signature below' : 'Auto-filled from date below'}
+                        title={`Auto-filled from Employee Signature #${groupIdx + 1} section below`}
                       >
-                        <span className="truncate">{previewText || 'Will be filled from below ↓'}</span>
+                        <span className="truncate">{sig.text || `Signature #${groupIdx + 1} ↓`}</span>
                       </div>
+                    )
+                  }
+
+                  // Date field — native date picker (employee mode, non-manager, non-parent)
+                  if (fieldRole === 'date' && isEmployeeMode) {
+                    return (
+                      <input
+                        key={field.id}
+                        type="date"
+                        value={(displayVal as string) || ''}
+                        onChange={(e) => handleValueChange(field.fieldName, e.target.value)}
+                        disabled={disabled}
+                        className={`absolute px-1 rounded-sm focus:outline-none ${overlayClasses}`}
+                        style={{
+                          ...style,
+                          fontSize: Math.min((style.height as number) * 0.6, 10),
+                          lineHeight: 1,
+                        }}
+                      />
                     )
                   }
 
@@ -482,38 +584,39 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
 
                   // Manager sig field in manager mode — show signature preview
                   if (isManagerMode && isManagerField(field.fieldName) && /sig/i.test(field.fieldName)) {
+                    const mgrSig = signatures[0] || defaultSigState()
                     return (
                       <div
                         key={field.id}
                         className="absolute px-1 bg-amber-50/70 border border-amber-300 rounded-sm flex items-center"
                         style={{
                           ...style,
-                          fontFamily: signatureFont,
+                          fontFamily: mgrSig.font,
                           fontSize: Math.min((style.height as number) * 0.65, 11),
                           color: '#1e3a5f',
                         }}
                         title="Auto-filled from manager signature below"
                       >
-                        <span className="truncate">{signatureText || 'Will be filled from below ↓'}</span>
+                        <span className="truncate">{mgrSig.text || 'Will be filled from below ↓'}</span>
                       </div>
                     )
                   }
 
-                  // Manager date field in manager mode — show date preview
+                  // Manager date field in manager mode — native date picker
                   if (isManagerMode && isManagerField(field.fieldName) && /date/i.test(field.fieldName)) {
                     return (
-                      <div
+                      <input
                         key={field.id}
-                        className="absolute px-1 bg-amber-50/70 border border-amber-300 rounded-sm flex items-center"
+                        type="date"
+                        value={(values['_manager_sign_date'] as string) || ''}
+                        onChange={(e) => setValues(prev => ({ ...prev, _manager_sign_date: e.target.value }))}
+                        className="absolute px-1 bg-amber-50/70 border border-amber-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-amber-500"
                         style={{
                           ...style,
-                          fontSize: Math.min((style.height as number) * 0.65, 11),
-                          color: '#374151',
+                          fontSize: Math.min((style.height as number) * 0.6, 10),
+                          lineHeight: 1,
                         }}
-                        title="Auto-filled from manager date below"
-                      >
-                        <span className="truncate">{signatureDate || 'Will be filled from below ↓'}</span>
-                      </div>
+                      />
                     )
                   }
 
@@ -540,85 +643,104 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false, mode = '
         </div>
       </div>
 
-      {/* Signature & Date Section — shown for employee mode and manager-review mode */}
-      {!isReadonlyMode && (
-        <div className="mt-4 bg-white p-4 rounded-lg shadow-sm space-y-4">
-          <div>
-            <h3 className="font-semibold text-gray-800">{signatureSectionTitle}</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{signatureSectionSubtitle}</p>
-          </div>
+      {/* Signature Section — shown for employee mode (per group) and manager-review mode */}
+      {!isReadonlyMode && (isEmployeeMode ? numSigGroups > 0 : true) && (
+        <div className="mt-4 space-y-4">
+          {(isManagerMode ? [0] : Array.from({ length: numSigGroups }, (_, i) => i)).map((groupIdx) => {
+            const sig = signatures[groupIdx] || defaultSigState()
+            const sectionTitle = isManagerMode
+              ? 'Manager Signature'
+              : numSigGroups > 1
+                ? `Employee Signature (${groupIdx + 1} of ${numSigGroups})`
+                : 'Employee Signature'
+            const sectionSubtitle = isManagerMode
+              ? 'Your signature will be applied to the Manager Signature field'
+              : numSigGroups > 1
+                ? `Fills Employee Signature #${groupIdx + 1} on the form. Date fields are filled directly in the form above.`
+                : 'Fills the Employee Signature field on the form. Date fields are filled directly in the form above.'
 
-          <div className="grid md:grid-cols-3 gap-4">
-            {/* Print Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Print Name</label>
-              <input
-                type="text"
-                value={printName}
-                onChange={(e) => setPrintName(e.target.value)}
-                placeholder="Your full name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
-            </div>
+            return (
+              <div key={groupIdx} className="bg-white p-4 rounded-lg shadow-sm space-y-4">
+                <div>
+                  <h3 className="font-semibold text-gray-800">{sectionTitle}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{sectionSubtitle}</p>
+                </div>
 
-            {/* Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-              <input
-                type="date"
-                value={signatureDate}
-                onChange={(e) => setSignatureDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              />
-            </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Print Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Print Name</label>
+                    <input
+                      type="text"
+                      value={sig.printName}
+                      onChange={(e) => updateSignature(groupIdx, { printName: e.target.value })}
+                      placeholder="Your full name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    />
+                  </div>
 
-            {/* Signature */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Signature</label>
-              <input
-                type="text"
-                value={signatureText}
-                onChange={(e) => setSignatureText(e.target.value)}
-                placeholder="Type your signature"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                style={{ fontFamily: signatureFont }}
-              />
-              <div className="flex gap-1 mt-1">
-                {signatureFonts.map((font) => (
-                  <button
-                    key={font.name}
-                    type="button"
-                    onClick={() => setSignatureFont(font.fontFamily)}
-                    className={`flex-1 px-2 py-1 text-xs rounded ${
-                      signatureFont === font.fontFamily
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-gray-100 hover:bg-gray-200'
-                    }`}
-                    style={{ fontFamily: font.fontFamily }}
-                  >
-                    {font.name}
-                  </button>
-                ))}
+                  {/* Signature */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Signature</label>
+                    <input
+                      type="text"
+                      value={sig.text}
+                      onChange={(e) => updateSignature(groupIdx, { text: e.target.value })}
+                      placeholder="Type your signature"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                      style={{ fontFamily: sig.font }}
+                    />
+                    <div className="flex gap-1 mt-1">
+                      {signatureFonts.map((font) => (
+                        <button
+                          key={font.name}
+                          type="button"
+                          onClick={() => updateSignature(groupIdx, { font: font.fontFamily })}
+                          className={`flex-1 px-2 py-1 text-xs rounded ${
+                            sig.font === font.fontFamily
+                              ? 'bg-orange-500 text-white'
+                              : 'bg-gray-100 hover:bg-gray-200'
+                          }`}
+                          style={{ fontFamily: font.fontFamily }}
+                        >
+                          {font.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signature Preview */}
+                {sig.text && (
+                  <div className="p-3 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                    <p className="text-xs text-gray-500 mb-1">Signature Preview</p>
+                    <p className="text-2xl text-blue-900" style={{ fontFamily: sig.font }}>
+                      {sig.text}
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
+            )
+          })}
 
-          {/* Signature Preview */}
-          {signatureText && (
-            <div className="p-3 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <p className="text-xs text-gray-500 mb-1">Signature Preview</p>
-              <p className="text-2xl text-blue-900" style={{ fontFamily: signatureFont }}>
-                {signatureText}
-              </p>
+          {/* Submit / Download / Approve Buttons */}
+          <div className="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm gap-3">
+            <div className="text-xs text-gray-500">
+              {isEmployeeMode && 'Review the form above, then submit for manager approval.'}
+              {isManagerMode && 'Review the employee\'s submission, then sign and approve below.'}
             </div>
-          )}
-
-          {/* Submit / Approve Button */}
-          <div className="flex justify-end">
-            <Button onClick={handleSubmit} loading={submitting}>
-              <Send className="w-4 h-4 mr-2" />
-              {isManagerMode ? 'Sign & Approve' : 'Submit Form'}
-            </Button>
+            <div className="flex gap-2">
+              {isEmployeeMode && onDownload && (
+                <Button variant="outline" onClick={handleDownload} loading={downloading}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              )}
+              <Button onClick={handleSubmit} loading={submitting}>
+                <Send className="w-4 h-4 mr-2" />
+                {isManagerMode ? 'Sign & Approve' : 'Submit Form'}
+              </Button>
+            </div>
           </div>
         </div>
       )}
