@@ -4,13 +4,13 @@ import { useAuthStore } from '../../stores/authStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { 
-  Inbox, 
-  Mail, 
-  MailOpen, 
-  UserPlus, 
-  Briefcase, 
-  FileText, 
+import {
+  Inbox,
+  Mail,
+  MailOpen,
+  UserPlus,
+  Briefcase,
+  FileText,
   MessageSquare,
   Search,
   Filter,
@@ -21,11 +21,12 @@ import {
   Archive,
   Reply,
   Trash2,
-  X
+  X,
+  ShieldAlert
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-type InboxCategory = 'all' | 'approvals' | 'applications' | 'forms' | 'contacts'
+type InboxCategory = 'all' | 'approvals' | 'applications' | 'forms' | 'contacts' | 'spam'
 type ItemStatus = 'unread' | 'read' | 'archived'
 
 interface InboxItem {
@@ -134,7 +135,7 @@ const InboxPage = () => {
       }
 
       if (contacts) {
-        contacts.forEach((contact: { id: string; name: string; subject: string; message: string; status: string; created_at: string }) => {
+        contacts.forEach((contact: { id: string; name: string; subject: string; message: string; status: string; spam_score?: number; spam_reasons?: string[]; created_at: string }) => {
           allItems.push({
             id: contact.id,
             type: 'contact',
@@ -189,6 +190,7 @@ const InboxPage = () => {
       read: 'bg-gray-100 text-gray-800',
       replied: 'bg-green-100 text-green-800',
       archived: 'bg-gray-100 text-gray-600',
+      spam: 'bg-red-100 text-red-800',
     }
     return statusColors[item.status] || 'bg-gray-100 text-gray-800'
   }
@@ -312,15 +314,24 @@ const InboxPage = () => {
   }
 
   const filteredItems = items.filter(item => {
-    if (category !== 'all') {
-      const categoryMap: Record<InboxCategory, InboxItem['type'][]> = {
-        all: ['approval', 'application', 'form', 'contact'],
-        approvals: ['approval'],
-        applications: ['application'],
-        forms: ['form'],
-        contacts: ['contact'],
+    // Spam folder: only show spam contacts
+    if (category === 'spam') {
+      if (item.type !== 'contact' || item.status !== 'spam') return false
+    } else {
+      // All other folders: hide spam items
+      if (item.status === 'spam') return false
+
+      if (category !== 'all') {
+        const categoryMap: Record<InboxCategory, InboxItem['type'][]> = {
+          all: ['approval', 'application', 'form', 'contact'],
+          approvals: ['approval'],
+          applications: ['application'],
+          forms: ['form'],
+          contacts: ['contact'],
+          spam: ['contact'],
+        }
+        if (!categoryMap[category].includes(item.type)) return false
       }
-      if (!categoryMap[category].includes(item.type)) return false
     }
 
     if (statusFilter === 'unread' && item.isRead) return false
@@ -340,13 +351,15 @@ const InboxPage = () => {
   })
 
   const getCounts = () => {
+    const nonSpam = items.filter(i => i.status !== 'spam')
     return {
-      all: items.length,
-      approvals: items.filter(i => i.type === 'approval').length,
-      applications: items.filter(i => i.type === 'application').length,
-      forms: items.filter(i => i.type === 'form').length,
-      contacts: items.filter(i => i.type === 'contact').length,
-      unread: items.filter(i => !i.isRead).length,
+      all: nonSpam.length,
+      approvals: nonSpam.filter(i => i.type === 'approval').length,
+      applications: nonSpam.filter(i => i.type === 'application').length,
+      forms: nonSpam.filter(i => i.type === 'form').length,
+      contacts: nonSpam.filter(i => i.type === 'contact').length,
+      spam: items.filter(i => i.status === 'spam').length,
+      unread: nonSpam.filter(i => !i.isRead).length,
     }
   }
 
@@ -475,6 +488,21 @@ const InboxPage = () => {
                     </div>
                   )}
                 </div>
+                {selectedItem.status === 'spam' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1">
+                      <ShieldAlert className="w-4 h-4" />
+                      Flagged as Spam (score: {(data.spam_score as number) ?? 'N/A'}/100)
+                    </div>
+                    {Array.isArray(data.spam_reasons) && (data.spam_reasons as string[]).length > 0 && (
+                      <ul className="text-xs text-red-600 list-disc list-inside space-y-0.5">
+                        {(data.spam_reasons as string[]).map((reason, i) => (
+                          <li key={i}>{reason}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
                 <div>
                   <label className="text-xs text-gray-500">Message</label>
                   <p className="mt-1 text-gray-700 whitespace-pre-wrap bg-gray-50 p-4 rounded-lg">
@@ -554,7 +582,14 @@ const InboxPage = () => {
               </>
             )}
 
-            {selectedItem.type === 'contact' && selectedItem.status !== 'archived' && (
+            {selectedItem.type === 'contact' && selectedItem.status === 'spam' && (
+              <Button onClick={() => handleUpdateContactStatus(selectedItem.id, 'new')}>
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Not Spam — Move to Inbox
+              </Button>
+            )}
+
+            {selectedItem.type === 'contact' && selectedItem.status !== 'archived' && selectedItem.status !== 'spam' && (
               <>
                 {selectedItem.status === 'new' && (
                   <Button onClick={() => handleUpdateContactStatus(selectedItem.id, 'read')}>
@@ -565,6 +600,10 @@ const InboxPage = () => {
                 <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'replied')}>
                   <Reply className="w-4 h-4 mr-2" />
                   Mark Replied
+                </Button>
+                <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'spam')}>
+                  <ShieldAlert className="w-4 h-4 mr-2" />
+                  Spam
                 </Button>
                 <Button variant="outline" onClick={() => handleUpdateContactStatus(selectedItem.id, 'archived')}>
                   <Archive className="w-4 h-4 mr-2" />
@@ -629,6 +668,7 @@ const InboxPage = () => {
               { key: 'applications', label: 'Applications', icon: Briefcase, count: counts.applications },
               { key: 'forms', label: 'Form Submissions', icon: FileText, count: counts.forms },
               { key: 'contacts', label: 'Contact Messages', icon: MessageSquare, count: counts.contacts },
+              { key: 'spam', label: 'Spam', icon: ShieldAlert, count: counts.spam },
             ].map((item) => (
               <button
                 key={item.key}

@@ -5,6 +5,7 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import { Mail, Phone, MapPin, Send, ArrowLeft, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { detectSpam } from '../utils/spamFilter'
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({
@@ -27,17 +28,29 @@ const ContactPage = () => {
 
     setLoading(true)
     try {
+      // Run spam detection on the submission
+      const spamResult = detectSpam({
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        phone: formData.phone,
+      })
+
       const { error } = await supabase.from('contact_submissions').insert({
         name: formData.name,
         email: formData.email,
         phone: formData.phone || null,
         subject: formData.subject,
         message: formData.message,
-        status: 'new',
+        status: spamResult.isSpam ? 'spam' : 'new',
+        spam_score: spamResult.score,
+        spam_reasons: spamResult.reasons,
       })
 
       if (error) throw error
 
+      // Always show success to the sender (don't reveal spam detection)
       setSubmitted(true)
       toast.success('Message sent successfully!')
     } catch (error) {

@@ -182,7 +182,7 @@ CREATE INDEX idx_job_applications_status ON job_applications(status);
 CREATE INDEX idx_job_applications_email ON job_applications(email);
 
 -- Contact Us Submissions
-CREATE TYPE contact_status AS ENUM ('new', 'read', 'replied', 'archived');
+CREATE TYPE contact_status AS ENUM ('new', 'read', 'replied', 'archived', 'spam');
 
 CREATE TABLE contact_submissions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -195,11 +195,14 @@ CREATE TABLE contact_submissions (
     replied_by UUID REFERENCES users(id) ON DELETE SET NULL,
     replied_at TIMESTAMPTZ,
     notes TEXT,
+    spam_score INTEGER,
+    spam_reasons JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_contact_submissions_status ON contact_submissions(status);
 CREATE INDEX idx_contact_submissions_email ON contact_submissions(email);
+CREATE INDEX idx_contact_submissions_spam ON contact_submissions(status) WHERE status = 'spam';
 
 -- Job Positions (managed by admins, displayed on public /jobs page)
 CREATE TABLE job_positions (
