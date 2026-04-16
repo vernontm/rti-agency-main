@@ -160,7 +160,7 @@ const LandingPage = () => {
             <div className="flex items-center gap-6">
               <span className="hidden sm:flex items-center gap-1.5">
                 <MapPin className="w-3 h-3 text-[#fe9226]" />
-                45030 Trevor Ave. Suite B, Lancaster, CA 93534
+                42442 10th St. West Ste. B, Lancaster, CA 93534
               </span>
               <span className="flex items-center gap-1.5">
                 <Clock className="w-3 h-3 text-[#fe9226]" />
@@ -690,7 +690,7 @@ const LandingPage = () => {
               <address className="not-italic space-y-4 text-sm">
                 <div className="flex items-start gap-3">
                   <MapPin className="w-4 h-4 text-[#fe9226] mt-0.5 shrink-0" />
-                  <span className="text-white/40">45030 Trevor Ave. Suite B<br />Lancaster, CA 93534</span>
+                  <span className="text-white/40">42442 10th St. West Ste. B<br />Lancaster, CA 93534</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-[#fe9226] shrink-0" />
@@ -702,7 +702,7 @@ const LandingPage = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <Clock className="w-4 h-4 text-[#fe9226] shrink-0" />
-                  <span className="text-white/40">Mon-Fri 8:00 AM - 5:00 PM</span>
+                  <span className="text-white/40">Mon-Fri 9:00 AM - 5:00 PM</span>
                 </div>
               </address>
             </div>

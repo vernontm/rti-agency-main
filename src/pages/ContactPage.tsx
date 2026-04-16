@@ -124,7 +124,7 @@ const ContactPage = () => {
                 <div>
                   <h3 className="font-semibold text-lg">Address</h3>
                   <p className="text-gray-300">
-                    45030 Trevor Ave. Suite B<br />
+                    42442 10th St. West Ste. B<br />
                     Lancaster, CA 93534
                   </p>
                 </div>
@@ -157,7 +157,7 @@ const ContactPage = () => {
               <div className="space-y-2 text-gray-300">
                 <div className="flex justify-between">
                   <span>Monday - Friday</span>
-                  <span>8:00 AM - 5:00 PM</span>
+                  <span>9:00 AM - 5:00 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Saturday - Sunday</span>
