@@ -115,9 +115,12 @@ const FormsManagementPage = () => {
     acroForm?: boolean
   ) => {
     try {
+      // form_type has a UNIQUE constraint — use a slug of the form name + timestamp
+      const formType = `pdf_${formName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`
+
       const { error } = await supabase.from('forms').insert({
         form_name: formName,
-        form_type: 'pdf',
+        form_type: formType,
         fields_schema: {
           type: 'pdf',
           pdfUrl,
