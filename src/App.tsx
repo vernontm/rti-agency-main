@@ -25,6 +25,7 @@ import JobPositionsManagementPage from './pages/admin/JobPositionsManagementPage
 import InboxPage from './pages/admin/InboxPage'
 import AdvisoriesManagementPage from './pages/admin/AdvisoriesManagementPage'
 import ArchivesPage from './pages/admin/ArchivesPage'
+import FormsManagementPage from './pages/admin/FormsManagementPage'
 import EducatorAreaPage from './pages/EducatorAreaPage'
 import AdvisoriesPage from './pages/AdvisoriesPage'
 import CalendarPage from './pages/CalendarPage'
@@ -83,6 +84,7 @@ function App() {
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/documents" element={<AdvisoriesPage />} />
+          <Route path="/admin/forms" element={<FormsManagementPage />} />
           <Route path="/admin/videos" element={<VideoManagementPage />} />
           <Route path="/admin/video-settings" element={<VideoSettingsPage />} />
           <Route path="/admin/pending-users" element={<PendingUsersPage />} />
