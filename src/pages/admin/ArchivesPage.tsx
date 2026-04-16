@@ -44,8 +44,6 @@ const ArchivesPage = () => {
         .select(`*, forms (form_name), users:submitted_by (full_name, email)`)
         .order('submitted_at', { ascending: false })
 
-      console.log('Form submissions query:', { formSubmissions, formError })
-
       if (formError) {
         console.error('Error fetching form submissions:', formError)
       }

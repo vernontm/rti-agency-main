@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
+/* Mobile Safari viewport height fix */
+@supports (height: 100dvh) {
+  .h-screen-safe { height: 100dvh; }
+  .min-h-screen-safe { min-height: 100dvh; }
+}
+
 /* Themed scrollbar for sidebar */
+/* Firefox */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 transparent;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
 .sidebar-scroll::-webkit-scrollbar {
   width: 6px;
 }

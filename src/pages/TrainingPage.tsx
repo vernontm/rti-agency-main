@@ -458,6 +458,7 @@ const TrainingPage = () => {
                   className="w-full h-full"
                   controls
                   autoPlay
+                  playsInline
                   onTimeUpdate={(e) => {
                     const video = e.target as HTMLVideoElement
                     handleProgress({ playedSeconds: video.currentTime })

@@ -782,6 +782,7 @@ const VideoManagementPage = () => {
                 src={playingVideo.video_url}
                 controls
                 autoPlay
+                playsInline
                 className="w-full h-full"
               />
             </div>
