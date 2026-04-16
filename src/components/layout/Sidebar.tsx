@@ -289,7 +289,7 @@ const Sidebar = () => {
                       <div className="relative flex-shrink-0">
                         <item.icon size={20} />
                         {collapsed && getCountForRoute(item.to) > 0 && (
-                          <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                             {getCountForRoute(item.to) > 99 ? '99+' : getCountForRoute(item.to)}
                           </span>
                         )}
@@ -298,7 +298,7 @@ const Sidebar = () => {
                         <span className="flex-1 flex items-center justify-between text-sm">
                           {item.label}
                           {getCountForRoute(item.to) > 0 && (
-                            <span className="bg-orange-500 text-white text-xs font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5">
+                            <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-[20px] flex items-center justify-center px-1.5">
                               {getCountForRoute(item.to) > 99 ? '99+' : getCountForRoute(item.to)}
                             </span>
                           )}
