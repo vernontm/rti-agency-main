@@ -32,25 +32,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   initialize: async () => {
     // Prevent multiple initializations
     if (get().initialized) return
-    
+
+    let profileFetchInProgress = false
+
     // Set up auth state listener FIRST
     supabase.auth.onAuthStateChange(async (event, session) => {
       set({ user: session?.user ?? null, session })
 
       // Fetch profile if we have a session but no profile loaded yet
-      // This handles INITIAL_SESSION, SIGNED_IN, etc. without re-fetching on TOKEN_REFRESHED
-      if (session?.user && !get().profile) {
+      // Skip if another fetch is already in progress to avoid race conditions
+      if (session?.user && !get().profile && !profileFetchInProgress) {
+        profileFetchInProgress = true
         try {
           await get().fetchProfile()
         } catch (e: any) {
           if (e?.name !== 'AbortError') console.error('Error fetching profile:', e)
+        } finally {
+          profileFetchInProgress = false
         }
       } else if (event === 'SIGNED_OUT') {
         set({ profile: null })
       }
     })
-    
+
     try {
+      profileFetchInProgress = true
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         set({ user: session.user, session })
@@ -62,11 +68,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.error('Error initializing auth:', error)
       }
     } finally {
+      profileFetchInProgress = false
       set({ initialized: true })
     }
   },
 
-  fetchProfile: async (retries = 2) => {
+  fetchProfile: async (retries = 3) => {
     const { user } = get()
     if (!user) return
 
@@ -79,8 +86,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           .single()
 
         if (error) {
-          if ((error.message?.includes('AbortError') || error.code === '' || error.code === 'PGRST116') && attempt < retries - 1) {
-            await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+          // PGRST116 = no rows found — user row may not exist yet (trigger timing)
+          // AbortError = component unmount, safe to retry
+          const isRetryable = error.message?.includes('AbortError') || error.code === '' || error.code === 'PGRST116'
+          if (isRetryable && attempt < retries - 1) {
+            await new Promise(r => setTimeout(r, 800 * (attempt + 1)))
             continue
           }
           console.error('Error fetching profile:', error)
@@ -93,7 +103,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       } catch (e: any) {
         if (e?.name === 'AbortError' && attempt < retries - 1) {
-          await new Promise(r => setTimeout(r, 500 * (attempt + 1)))
+          await new Promise(r => setTimeout(r, 800 * (attempt + 1)))
           continue
         }
         console.error('fetchProfile error:', e)
@@ -112,6 +122,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (data.session) {
         set({ user: data.session.user, session: data.session })
         await get().fetchProfile()
+      }
+      // Verify profile was actually loaded — if not, auth succeeded but profile
+      // fetch failed (missing user row, RLS issue, or trigger timing)
+      if (!get().profile) {
+        // One more retry after a short delay (trigger may still be running)
+        await new Promise(r => setTimeout(r, 1000))
+        await get().fetchProfile()
+      }
+      if (!get().profile) {
+        throw new Error('Login succeeded but your profile could not be loaded. Please try again or contact an administrator.')
       }
       return { error: null }
     } catch (error) {

@@ -476,6 +476,137 @@ ALTER TABLE admin_notification_dismissals ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Admins can manage their own dismissals" ON admin_notification_dismissals
     FOR ALL USING (admin_id = auth.uid());
 
+-- Site popups (shown on landing/public pages)
+CREATE TABLE site_popups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    delay_seconds INTEGER NOT NULL DEFAULT 3,
+    is_visible BOOLEAN NOT NULL DEFAULT false,
+    active_from TIMESTAMPTZ,
+    active_until TIMESTAMPTZ,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Admin settings (key-value store for dashboard notes, etc.)
+CREATE TABLE admin_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key TEXT NOT NULL UNIQUE,
+    value TEXT,
+    updated_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Video categories (for organizing training videos)
+CREATE TABLE video_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_video_categories_sort_order ON video_categories(sort_order);
+
+-- Add category_id to videos if not exists (run separately if table already exists)
+-- ALTER TABLE videos ADD COLUMN IF NOT EXISTS category_id UUID REFERENCES video_categories(id) ON DELETE SET NULL;
+
+-- RLS for site_popups (public read, admin write)
+ALTER TABLE site_popups ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view visible popups" ON site_popups
+    FOR SELECT USING (is_visible = true);
+
+CREATE POLICY "Admins can manage popups" ON site_popups
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- RLS for admin_settings
+ALTER TABLE admin_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Admins can view settings" ON admin_settings
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can manage settings" ON admin_settings
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- RLS for video_categories
+ALTER TABLE video_categories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view categories" ON video_categories
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Admins can manage categories" ON video_categories
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- RLS for advisories (missing from original schema)
+ALTER TABLE advisories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view visible advisories" ON advisories
+    FOR SELECT USING (
+        is_visible = true
+        OR EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can manage advisories" ON advisories
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- RLS for educator_resources (missing from original schema)
+ALTER TABLE educator_resources ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view visible resources" ON educator_resources
+    FOR SELECT USING (
+        is_visible = true
+        OR EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can manage resources" ON educator_resources
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- RLS for job_applications
+ALTER TABLE job_applications ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can create applications" ON job_applications
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Admins can view all applications" ON job_applications
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can manage applications" ON job_applications
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+-- RLS for contact_submissions
+ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can create contact submissions" ON contact_submissions
+    FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Admins can view all contact submissions" ON contact_submissions
+    FOR SELECT USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
+CREATE POLICY "Admins can manage contact submissions" ON contact_submissions
+    FOR ALL USING (
+        EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin')
+    );
+
 -- Storage buckets (run these in Supabase Dashboard > Storage or via API)
 -- Create 'forms' bucket for PDF form uploads
 INSERT INTO storage.buckets (id, name, public) VALUES ('forms', 'forms', true)
