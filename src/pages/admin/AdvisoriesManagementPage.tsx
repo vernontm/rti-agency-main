@@ -30,6 +30,7 @@ const AdvisoriesManagementPage = () => {
   const [newAdvisory, setNewAdvisory] = useState({ title: '', description: '', category: 'advisory' as 'advisory' | 'downloads' })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [fileCategoryFilter, setFileCategoryFilter] = useState('all')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
 
@@ -215,8 +216,6 @@ const AdvisoriesManagementPage = () => {
     { key: 'visible', label: 'Visible', count: advisories.filter(a => a.is_visible).length },
     { key: 'hidden', label: 'Hidden', count: advisories.filter(a => !a.is_visible).length },
   ]
-
-  const [fileCategoryFilter, setFileCategoryFilter] = useState('all')
 
   const filteredAdvisories = advisories.filter(a => {
     if (fileCategoryFilter === 'advisory') return a.category === 'advisory'
