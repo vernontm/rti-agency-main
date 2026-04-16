@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import { PDFDocument, rgb, StandardFonts, PDFTextField, PDFCheckBox } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import type { PDFFormField } from '../components/pdf/PDFFormBuilder'
 
@@ -225,20 +225,20 @@ export async function generateAcroFilledPDF(
     if (isParentFieldName(name)) continue
 
     try {
-      const fieldType = field.constructor.name
-      if (fieldType === 'PDFCheckBox') {
-        const cb = form.getCheckBox(name)
+      // Use instanceof instead of constructor.name (which breaks under minification)
+      if (field instanceof PDFCheckBox) {
         if (value === true || value === 'true') {
-          cb.check()
+          field.check()
+        } else {
+          field.uncheck()
         }
-      } else if (fieldType === 'PDFTextField') {
-        const tf = form.getTextField(name)
+      } else if (field instanceof PDFTextField) {
         // If this is an employee signature field, use signature font
         if (/sig/i.test(name) && signatureFont && values['_signature_text']) {
-          tf.setText(String(value))
-          tf.updateAppearances(signatureFont)
+          field.setText(String(value))
+          field.updateAppearances(signatureFont)
         } else {
-          tf.setText(String(value))
+          field.setText(String(value))
         }
       }
     } catch (e) {
@@ -263,11 +263,10 @@ export async function generateAcroFilledPDF(
   if (values['_signature_text']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (/sig/i.test(name) && !isManagerFieldName(name) && !isParentFieldName(name) && !findValue(name) && field.constructor.name === 'PDFTextField') {
+      if (/sig/i.test(name) && !isManagerFieldName(name) && !isParentFieldName(name) && !findValue(name) && field instanceof PDFTextField) {
         try {
-          const tf = form.getTextField(name)
-          tf.setText(values['_signature_text'] as string)
-          if (signatureFont) tf.updateAppearances(signatureFont)
+          field.setText(values['_signature_text'] as string)
+          if (signatureFont) field.updateAppearances(signatureFont)
         } catch (e) {
           // Field might already be filled
         }
@@ -279,11 +278,10 @@ export async function generateAcroFilledPDF(
   if (values['_manager_signature_text']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (isManagerFieldName(name) && /sig/i.test(name) && field.constructor.name === 'PDFTextField') {
+      if (isManagerFieldName(name) && /sig/i.test(name) && field instanceof PDFTextField) {
         try {
-          const tf = form.getTextField(name)
-          tf.setText(values['_manager_signature_text'] as string)
-          if (managerSigFont) tf.updateAppearances(managerSigFont)
+          field.setText(values['_manager_signature_text'] as string)
+          if (managerSigFont) field.updateAppearances(managerSigFont)
         } catch (e) {
           console.warn(`Could not fill manager sig field "${name}":`, e)
         }
@@ -295,10 +293,9 @@ export async function generateAcroFilledPDF(
   if (values['_manager_signature_date']) {
     for (const field of allFields) {
       const name = field.getName()
-      if (isManagerFieldName(name) && /date/i.test(name) && field.constructor.name === 'PDFTextField') {
+      if (isManagerFieldName(name) && /date/i.test(name) && field instanceof PDFTextField) {
         try {
-          const tf = form.getTextField(name)
-          tf.setText(values['_manager_signature_date'] as string)
+          field.setText(values['_manager_signature_date'] as string)
         } catch (e) {
           console.warn(`Could not fill manager date field "${name}":`, e)
         }
@@ -312,10 +309,9 @@ export async function generateAcroFilledPDF(
     if (isParentFieldName(name)) continue
     if (isManagerFieldName(name) || /approved/i.test(name) || /rejected/i.test(name)) {
       const val = findValue(name)
-      if (val !== undefined && field.constructor.name === 'PDFCheckBox') {
+      if (val !== undefined && field instanceof PDFCheckBox) {
         try {
-          const cb = form.getCheckBox(name)
-          if (val === true || val === 'true') cb.check()
+          if (val === true || val === 'true') field.check()
         } catch (e) {
           // ignore
         }

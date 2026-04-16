@@ -141,8 +141,11 @@ const EducatorAreaPage = () => {
       link.download = `${selectedForm.form_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`
       document.body.appendChild(link)
       link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(blobUrl)
+      // Delay removal/revoke to give the browser time to start the download
+      setTimeout(() => {
+        document.body.removeChild(link)
+        URL.revokeObjectURL(blobUrl)
+      }, 1000)
 
       toast.dismiss('pdf-dl')
       toast.success('Downloaded filled PDF')
