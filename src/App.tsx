@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './stores/authStore'
 
+import ErrorBoundary from './components/ErrorBoundary'
 import MainLayout from './components/layout/MainLayout'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 
@@ -31,6 +32,7 @@ import CalendarPage from './pages/CalendarPage'
 import LandingPage from './pages/LandingPage'
 import JobsPage from './pages/JobsPage'
 import ContactPage from './pages/ContactPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 const ProtectedLayout = () => {
   const { initialized } = useAuthStore()
@@ -58,6 +60,7 @@ function App() {
   }, [initialize])
 
   return (
+    <ErrorBoundary>
     <BrowserRouter>
       <Routes>
         {/* Public routes */}
@@ -92,10 +95,11 @@ function App() {
         </Route>
 
         {/* Catch all */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <Toaster position="top-right" toastOptions={{ style: { marginTop: '70px' } }} />
     </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

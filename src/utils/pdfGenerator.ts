@@ -18,7 +18,9 @@ export async function generateFilledPDF(
   isAcroForm?: boolean
 ): Promise<Uint8Array> {
   // Fetch the original PDF
-  const existingPdfBytes = await fetch(pdfUrl).then(res => res.arrayBuffer())
+  const res = await fetch(pdfUrl)
+  if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status} ${res.statusText}`)
+  const existingPdfBytes = await res.arrayBuffer()
 
   // Load the PDF
   const pdfDoc = await PDFDocument.load(existingPdfBytes)
@@ -80,7 +82,7 @@ export async function generateFilledPDF(
 
     for (const field of fields) {
       const value = values[field.id]
-      if (!value) continue
+      if (value === undefined || value === null || value === '') continue
 
       const page = pages[field.page - 1]
       if (!page) continue
@@ -160,7 +162,9 @@ export async function generateAcroFilledPDF(
   pdfUrl: string,
   values: Record<string, string | boolean>
 ): Promise<Uint8Array> {
-  const existingPdfBytes = await fetch(pdfUrl).then(res => res.arrayBuffer())
+  const res = await fetch(pdfUrl)
+  if (!res.ok) throw new Error(`Failed to fetch PDF: ${res.status} ${res.statusText}`)
+  const existingPdfBytes = await res.arrayBuffer()
   const pdfDoc = await PDFDocument.load(existingPdfBytes)
   pdfDoc.registerFontkit(fontkit)
 

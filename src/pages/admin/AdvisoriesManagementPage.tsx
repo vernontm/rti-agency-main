@@ -84,7 +84,6 @@ const AdvisoriesManagementPage = () => {
     try {
       // Upload file to storage
       const fileName = `${Date.now()}-${selectedFile.name}`
-      console.log('Uploading file:', fileName)
       
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
@@ -104,8 +103,6 @@ const AdvisoriesManagementPage = () => {
       clearInterval(progressInterval)
       setUploadProgress(100)
       
-      console.log('Upload result:', { uploadData, uploadError })
-
       if (uploadError) {
         console.error('Storage upload error:', uploadError)
         throw uploadError
@@ -115,8 +112,6 @@ const AdvisoriesManagementPage = () => {
       const { data: urlData } = supabase.storage
         .from('advisories')
         .getPublicUrl(fileName)
-
-      console.log('Public URL:', urlData.publicUrl)
 
       // Create advisory record
       const { data: insertData, error: insertError } = await supabase
@@ -130,8 +125,6 @@ const AdvisoriesManagementPage = () => {
           category: newAdvisory.category,
         })
         .select()
-
-      console.log('Insert result:', { insertData, insertError })
 
       if (insertError) {
         console.error('Database insert error:', insertError)

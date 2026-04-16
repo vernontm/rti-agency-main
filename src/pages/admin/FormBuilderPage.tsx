@@ -404,6 +404,7 @@ const FormBuilderPage = () => {
               setFormName('')
               setFormType('')
               setFields([])
+              setBuilderMode('list')
             }}
           >
             Cancel

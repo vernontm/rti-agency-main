@@ -58,12 +58,32 @@ const InboxPage = () => {
     try {
       const allItems: InboxItem[] = []
 
-      // Fetch pending user approvals
-      const { data: pendingUsers } = await supabase
-        .from('users')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+      // Fetch all inbox data in parallel
+      const [
+        { data: pendingUsers },
+        { data: applications },
+        { data: formSubmissions },
+        { data: contacts },
+      ] = await Promise.all([
+        supabase
+          .from('users')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('job_applications')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('form_submissions')
+          .select(`*, forms (form_name), users:submitted_by (full_name, email)`)
+          .eq('status', 'pending')
+          .order('submitted_at', { ascending: false }),
+        supabase
+          .from('contact_submissions')
+          .select('*')
+          .order('created_at', { ascending: false }),
+      ])
 
       if (pendingUsers) {
         pendingUsers.forEach((user: { id: string; full_name: string; email: string; role: string; created_at: string }) => {
@@ -81,12 +101,6 @@ const InboxPage = () => {
         })
       }
 
-      // Fetch job applications
-      const { data: applications } = await supabase
-        .from('job_applications')
-        .select('*')
-        .order('created_at', { ascending: false })
-
       if (applications) {
         applications.forEach((app: { id: string; full_name: string; position_applied: string; email: string; status: string; created_at: string }) => {
           allItems.push({
@@ -103,13 +117,6 @@ const InboxPage = () => {
         })
       }
 
-      // Fetch pending form submissions
-      const { data: formSubmissions } = await supabase
-        .from('form_submissions')
-        .select(`*, forms (form_name), users:submitted_by (full_name, email)`)
-        .eq('status', 'pending')
-        .order('submitted_at', { ascending: false })
-
       if (formSubmissions) {
         formSubmissions.forEach((sub: { id: string; forms: { form_name: string } | null; users: { full_name: string; email: string } | null; status: string; submitted_at: string }) => {
           allItems.push({
@@ -125,12 +132,6 @@ const InboxPage = () => {
           })
         })
       }
-
-      // Fetch contact submissions
-      const { data: contacts } = await supabase
-        .from('contact_submissions')
-        .select('*')
-        .order('created_at', { ascending: false })
 
       if (contacts) {
         contacts.forEach((contact: { id: string; name: string; subject: string; message: string; status: string; created_at: string }) => {

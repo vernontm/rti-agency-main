@@ -226,6 +226,9 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, readOnly = false }: AcroFo
     setSubmitting(true)
     try {
       await onSubmit(allValues)
+    } catch (err) {
+      console.error('Form submission failed:', err)
+      toast.error('Failed to submit form')
     } finally {
       setSubmitting(false)
     }

@@ -76,8 +76,8 @@ const ArchivesPage = () => {
           allItems.push({
             id: app.id,
             type: 'application',
-            title: `${app.first_name} ${app.last_name}`,
-            subtitle: `${app.position} - ${app.email}`,
+            title: `${app.full_name}`,
+            subtitle: `${app.position_applied} - ${app.email}`,
             status: app.status,
             created_at: app.created_at,
             data: app,

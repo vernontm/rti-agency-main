@@ -97,6 +97,12 @@ const DashboardPage = () => {
   const notesTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
+    return () => {
+      if (notesTimeoutRef.current) clearTimeout(notesTimeoutRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
     setLoading(true)
     fetchDashboardStats()
   }, [effectiveRole])
@@ -130,36 +136,40 @@ const DashboardPage = () => {
       let newAnnouncements = 0
 
       if (profile?.id) {
-        // Get video progress
-        const { data: videos } = await supabase.from('videos').select('id')
-        const { data: videoProgress } = await supabase
-          .from('video_progress')
-          .select('video_id, completed')
-          .eq('user_id', profile.id)
-          .eq('completed', true)
-        
+        const oneWeekAgo = new Date()
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+
+        // Fetch all employee stats in parallel
+        const [
+          { data: videos },
+          { data: videoProgress },
+          { data: documents },
+          { data: recentAnnouncements },
+          { data: readAnnouncements },
+        ] = await Promise.all([
+          supabase.from('videos').select('id'),
+          supabase
+            .from('video_progress')
+            .select('video_id, completed')
+            .eq('user_id', profile.id)
+            .eq('completed', true),
+          supabase.from('advisories').select('id'),
+          supabase
+            .from('announcements')
+            .select('id')
+            .gte('created_at', oneWeekAgo.toISOString()),
+          supabase
+            .from('announcement_reads')
+            .select('announcement_id')
+            .eq('user_id', profile.id),
+        ])
+
         totalVideos = videos?.length || 0
         completedVideos = videoProgress?.length || 0
-
-        // Get documents (advisories)
-        const { data: documents } = await supabase.from('advisories').select('id')
         totalDocuments = documents?.length || 0
         // For now, assume all viewed - you can add a document_views table later
         viewedDocuments = 0
 
-        // Get announcements since last week (or implement last_login tracking)
-        const oneWeekAgo = new Date()
-        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
-        const { data: recentAnnouncements } = await supabase
-          .from('announcements')
-          .select('id')
-          .gte('created_at', oneWeekAgo.toISOString())
-        
-        const { data: readAnnouncements } = await supabase
-          .from('announcement_reads')
-          .select('announcement_id')
-          .eq('user_id', profile.id)
-        
         const readIds = new Set((readAnnouncements as { announcement_id: string }[] | null)?.map(r => r.announcement_id) || [])
         newAnnouncements = (recentAnnouncements as { id: string }[] | null)?.filter(a => !readIds.has(a.id)).length || 0
       }
@@ -634,7 +644,7 @@ const DashboardPage = () => {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-gray-900">Pending Form Submissions</h3>
                   <button 
-                    onClick={() => navigate('/forms')}
+                    onClick={() => navigate('/admin/forms')}
                     className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
                   >
                     View All <ArrowRight className="w-4 h-4" />
@@ -657,7 +667,7 @@ const DashboardPage = () => {
                         </div>
                       </div>
                       <button 
-                        onClick={() => navigate('/forms')}
+                        onClick={() => navigate('/admin/forms')}
                         className="text-blue-600 hover:text-blue-800"
                       >
                         <ArrowRight className="w-5 h-5" />
@@ -722,7 +732,7 @@ const DashboardPage = () => {
                 <span className="text-sm font-medium">Announcements</span>
               </button>
               <button 
-                onClick={() => navigate('/forms')}
+                onClick={() => navigate('/admin/forms')}
                 className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <FileText className="w-5 h-5" />

@@ -67,11 +67,8 @@ const TrainingPage = () => {
         .eq('key', 'engagement_check_interval')
         .single()
       
-      console.log('Video settings data:', data, 'Error:', error)
-      
       if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
       if (data?.value?.seconds) {
-        console.log('Setting engagement interval to:', data.value.seconds)
         setEngagementInterval(data.value.seconds)
       }
     } catch (error) {
@@ -147,12 +144,8 @@ const TrainingPage = () => {
     const currentTime = state.playedSeconds
     setProgress(currentTime)
 
-    // Debug logging
-    console.log('Progress:', currentTime, 'Interval:', engagementInterval, 'LastCheck:', lastCheckInRef.current)
-
     // Use engagement interval from settings (default 60 seconds, but can be set to 2 for testing)
     if (engagementInterval > 0 && currentTime - lastCheckInRef.current >= engagementInterval) {
-      console.log('TRIGGERING ENGAGEMENT CHECK!')
       lastCheckInRef.current = currentTime
       setShowEngagementCheck(true)
       setPlaying(false)
@@ -162,7 +155,7 @@ const TrainingPage = () => {
       }
       // Exit fullscreen if active so user can see the prompt
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(err => console.log('Error exiting fullscreen:', err))
+        document.exitFullscreen().catch(() => { /* ignore fullscreen exit errors */ })
       }
     }
   }, [engagementInterval])
