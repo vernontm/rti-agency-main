@@ -30,7 +30,7 @@ type FieldValue = string | boolean | { text: string; font: string }
 const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, initialValues = {}, pdfRotation = 0 }: PDFFormViewerProps) => {
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [totalPages, setTotalPages] = useState(0)
-  const [scale, setScale] = useState(1.2)
+  const [scale, setScale] = useState(1.0)
   const [pageHeights, setPageHeights] = useState<number[]>([])
   const [pageDimensions, setPageDimensions] = useState<{ width: number; height: number }[]>([])
   const [values, setValues] = useState<Record<string, FieldValue>>(initialValues as Record<string, FieldValue>)
@@ -63,30 +63,7 @@ const PDFFormViewer = ({ pdfUrl, fields, formName, onSubmit, readOnly = false, i
   // Track render generation to prevent stale renders from overwriting fresh ones
   const renderGenRef = useRef(0)
 
-  // Calculate scale to fit width
-  useEffect(() => {
-    if (!pdfDoc || !viewerRef.current || totalPages === 0) return
-
-    const calculateFitScale = async () => {
-      const viewer = viewerRef.current
-      if (!viewer) return
-
-      await new Promise(resolve => requestAnimationFrame(resolve))
-
-      const page = await pdfDoc.getPage(1)
-      const viewport = page.getViewport({ scale: 1, rotation: pdfRotation })
-      const containerWidth = viewer.clientWidth - 48
-      if (containerWidth <= 0) return
-      const newScale = containerWidth / viewport.width
-      setScale(Math.min(Math.max(newScale, 0.5), 2.5))
-    }
-
-    calculateFitScale()
-
-    const handleResize = () => calculateFitScale()
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [pdfDoc, totalPages, pdfRotation])
+  // Scale is defaulted to 1.0 (100%) — user can zoom in/out manually
 
   // Calculate page dimensions (synchronous with viewport, no rendering needed)
   useEffect(() => {
