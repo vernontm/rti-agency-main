@@ -2,10 +2,9 @@ import { useEffect, useState, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { Plus, Trash2, Eye, EyeOff, FileText, Upload, X } from 'lucide-react'
+import { Plus, Trash2, Eye, EyeOff, FileText, Upload, X, Search, FolderOpen, Download, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Advisory {
@@ -31,6 +30,7 @@ const AdvisoriesManagementPage = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [fileCategoryFilter, setFileCategoryFilter] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
 
@@ -64,7 +64,6 @@ const AdvisoriesManagementPage = () => {
         toast.error('Please select a PDF, PNG, JPEG, or ZIP file')
         return
       }
-      // Check file size (500MB limit)
       const maxSize = 500 * 1024 * 1024
       if (file.size > maxSize) {
         toast.error('File size must be less than 500MB')
@@ -83,10 +82,8 @@ const AdvisoriesManagementPage = () => {
     setUploading(true)
     setUploadProgress(0)
     try {
-      // Upload file to storage
       const fileName = `${Date.now()}-${selectedFile.name}`
-      
-      // Simulate progress for better UX
+
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -96,25 +93,23 @@ const AdvisoriesManagementPage = () => {
           return prev + 10
         })
       }, 200)
-      
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('advisories')
         .upload(fileName, selectedFile)
-      
+
       clearInterval(progressInterval)
       setUploadProgress(100)
-      
+
       if (uploadError) {
         console.error('Storage upload error:', uploadError)
         throw uploadError
       }
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('advisories')
         .getPublicUrl(fileName)
 
-      // Create advisory record
       const { data: insertData, error: insertError } = await supabase
         .from('advisories')
         .insert({
@@ -136,7 +131,6 @@ const AdvisoriesManagementPage = () => {
       setShowUploadModal(false)
       setNewAdvisory({ title: '', description: '', category: 'advisory' })
       setSelectedFile(null)
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
@@ -153,7 +147,7 @@ const AdvisoriesManagementPage = () => {
     try {
       const { error } = await supabase
         .from('advisories')
-        .update({ 
+        .update({
           is_visible: !advisory.is_visible,
           updated_at: new Date().toISOString()
         })
@@ -161,7 +155,7 @@ const AdvisoriesManagementPage = () => {
 
       if (error) throw error
 
-      setAdvisories(prev => 
+      setAdvisories(prev =>
         prev.map(a => a.id === advisory.id ? { ...a, is_visible: !a.is_visible } : a)
       )
       toast.success(advisory.is_visible ? 'Advisory hidden' : 'Advisory now visible')
@@ -175,13 +169,11 @@ const AdvisoriesManagementPage = () => {
     if (!confirm('Are you sure you want to delete this advisory?')) return
 
     try {
-      // Delete from storage
       const fileName = advisory.pdf_url.split('/').pop()
       if (fileName) {
         await supabase.storage.from('advisories').remove([fileName])
       }
 
-      // Delete record
       const { error } = await supabase
         .from('advisories')
         .delete()
@@ -200,6 +192,20 @@ const AdvisoriesManagementPage = () => {
     }
   }
 
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString()
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
@@ -210,74 +216,91 @@ const AdvisoriesManagementPage = () => {
   }
 
   const fileCategories = [
-    { key: 'all', label: 'All Files', count: advisories.length },
-    { key: 'advisory', label: 'Advisories', count: advisories.filter(a => a.category === 'advisory').length },
-    { key: 'downloads', label: 'Downloads', count: advisories.filter(a => a.category === 'downloads').length },
-    { key: 'visible', label: 'Visible', count: advisories.filter(a => a.is_visible).length },
-    { key: 'hidden', label: 'Hidden', count: advisories.filter(a => !a.is_visible).length },
+    { key: 'all', label: 'All Files', icon: FolderOpen, count: advisories.length, color: 'bg-blue-600' },
+    { key: 'advisory', label: 'Advisories', icon: FileText, count: advisories.filter(a => a.category === 'advisory').length, color: 'bg-blue-600' },
+    { key: 'downloads', label: 'Downloads', icon: Download, count: advisories.filter(a => a.category === 'downloads').length, color: 'bg-blue-600' },
+    { key: 'visible', label: 'Visible', icon: Eye, count: advisories.filter(a => a.is_visible).length, color: 'bg-green-600' },
+    { key: 'hidden', label: 'Hidden', icon: EyeOff, count: advisories.filter(a => !a.is_visible).length, color: 'bg-gray-500' },
   ]
 
   const filteredAdvisories = advisories.filter(a => {
-    if (fileCategoryFilter === 'advisory') return a.category === 'advisory'
-    if (fileCategoryFilter === 'downloads') return a.category === 'downloads'
-    if (fileCategoryFilter === 'visible') return a.is_visible
-    if (fileCategoryFilter === 'hidden') return !a.is_visible
-    return true
+    let matchesCategory = true
+    if (fileCategoryFilter === 'advisory') matchesCategory = a.category === 'advisory'
+    if (fileCategoryFilter === 'downloads') matchesCategory = a.category === 'downloads'
+    if (fileCategoryFilter === 'visible') matchesCategory = a.is_visible
+    if (fileCategoryFilter === 'hidden') matchesCategory = !a.is_visible
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      const matchesSearch = a.title.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q)
+      return matchesCategory && matchesSearch
+    }
+    return matchesCategory
   })
 
   return (
     <div className="-m-6 h-screen flex flex-col bg-white">
-      {/* Header */}
+      {/* Minimal header — title left, count right */}
       <div className="flex items-center justify-between px-6 py-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">File Manager</h1>
-          <p className="text-gray-500 text-sm">Upload and manage advisories and downloads for educators</p>
-        </div>
-        <Button onClick={() => setShowUploadModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Upload File
-        </Button>
+        <h1 className="text-xl font-semibold text-gray-900">File Manager</h1>
+        <span className="text-sm text-gray-400">{filteredAdvisories.length} files</span>
       </div>
 
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-56 border-r flex flex-col bg-gray-50/50">
-          <nav className="flex-1 p-2 space-y-0.5">
-            {fileCategories.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setFileCategoryFilter(cat.key)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  fileCategoryFilter === cat.key
-                    ? 'bg-orange-50 text-orange-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <FileText className="w-4 h-4" />
-                  {cat.label}
-                </span>
-                {cat.count > 0 && (
-                  <span className={`text-xs font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${
-                    fileCategoryFilter === cat.key ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    {cat.count}
+          {/* Search */}
+          <div className="p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search..."
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Category nav */}
+          <nav className="flex-1 px-2 pb-3 space-y-0.5">
+            {fileCategories.map((cat, idx) => (
+              <div key={cat.key}>
+                {/* Divider between groups: after Downloads (idx 2) and before Visible */}
+                {idx === 3 && <div className="my-2 border-t border-gray-200" />}
+                <button
+                  onClick={() => setFileCategoryFilter(cat.key)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    fileCategoryFilter === cat.key
+                      ? 'bg-orange-50 text-orange-700 font-medium'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <cat.icon className="w-4 h-4" />
+                    {cat.label}
                   </span>
-                )}
-              </button>
+                  {cat.count > 0 && (
+                    <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
+                      {cat.count}
+                    </span>
+                  )}
+                </button>
+              </div>
             ))}
           </nav>
+
+          {/* Upload button at bottom */}
+          <div className="p-3 border-t">
+            <Button onClick={() => setShowUploadModal(true)} className="w-full text-sm">
+              <Plus className="w-3.5 h-3.5 mr-2" />
+              Upload File
+            </Button>
+          </div>
         </div>
 
         {/* File list */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-5 py-3 border-b flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">
-              {fileCategories.find(c => c.key === fileCategoryFilter)?.label || 'All Files'}
-            </h2>
-            <span className="text-sm text-gray-500">{filteredAdvisories.length} files</span>
-          </div>
-
+        <div className={`flex-1 flex flex-col min-h-0 ${selectedAdvisory ? 'w-[55%]' : ''}`}>
           <div className="flex-1 overflow-y-auto">
             {filteredAdvisories.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -289,26 +312,43 @@ const AdvisoriesManagementPage = () => {
                 <button
                   key={advisory.id}
                   onClick={() => setSelectedAdvisory(selectedAdvisory?.id === advisory.id ? null : advisory)}
-                  className={`w-full flex items-center gap-4 px-5 py-3.5 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
+                  className={`w-full flex items-center gap-4 px-5 py-3 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
                     selectedAdvisory?.id === advisory.id ? 'bg-orange-50' : ''
                   }`}
                 >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${advisory.is_visible ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
-                    <FileText className="w-5 h-5" />
+                  {/* File icon as avatar */}
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${advisory.is_visible ? 'bg-emerald-500 text-white' : 'bg-gray-400 text-white'}`}>
+                    <FileText className="w-4 h-4" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{advisory.title}</p>
-                    <p className="text-sm text-gray-500 truncate mt-0.5">
-                      <span className="capitalize">{advisory.category}</span>
-                      {advisory.description && <><span className="mx-1.5 text-gray-300">&mdash;</span>{advisory.description}</>}
-                    </p>
+
+                  {/* Title — fixed width */}
+                  <span className="w-44 flex-shrink-0 text-sm font-semibold text-gray-900 truncate">
+                    {advisory.title}
+                  </span>
+
+                  {/* Category + description — single line */}
+                  <div className="flex-1 min-w-0 text-sm truncate">
+                    <span className="font-medium text-gray-700 capitalize">{advisory.category}</span>
+                    {advisory.description && (
+                      <>
+                        <span className="text-gray-300 mx-1.5">&mdash;</span>
+                        <span className="text-gray-400">{advisory.description}</span>
+                      </>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${advisory.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {advisory.is_visible ? 'Visible' : 'Hidden'}
-                    </span>
-                    <span className="text-xs text-gray-400">{new Date(advisory.created_at).toLocaleDateString()}</span>
-                  </div>
+
+                  {/* Visibility badge */}
+                  <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded flex-shrink-0 ${advisory.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {advisory.is_visible ? 'Visible' : 'Hidden'}
+                  </span>
+
+                  {/* Star */}
+                  <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400 flex-shrink-0 transition-colors" />
+
+                  {/* Time */}
+                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap w-16 text-right">
+                    {formatDate(advisory.created_at)}
+                  </span>
                 </button>
               ))
             )}
@@ -316,41 +356,32 @@ const AdvisoriesManagementPage = () => {
         </div>
 
         {/* Preview panel */}
-        <div className="w-[45%] border-l flex flex-col bg-white">
-          {selectedAdvisory ? (
-            <>
-              <div className="px-4 py-3 border-b flex items-center justify-between">
-                <h3 className="font-semibold text-gray-900 truncate">{selectedAdvisory.title}</h3>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <button
-                    onClick={() => toggleVisibility(selectedAdvisory)}
-                    className={`p-2 rounded-lg transition-colors ${selectedAdvisory.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-                    aria-label={selectedAdvisory.is_visible ? 'Hide from educators' : 'Show to educators'}
-                  >
-                    {selectedAdvisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  </button>
-                  <button
-                    onClick={() => deleteAdvisory(selectedAdvisory)}
-                    className="p-2 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
-                    aria-label="Delete file"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1">
-                <iframe src={selectedAdvisory.pdf_url} className="w-full h-full" title={selectedAdvisory.title} />
-              </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-400">
-              <div className="text-center">
-                <FileText className="w-12 h-12 mx-auto mb-3 opacity-40" />
-                <p className="text-sm">Select a file to preview</p>
+        {selectedAdvisory && (
+          <div className="w-[45%] border-l flex flex-col bg-white">
+            <div className="px-4 py-3 border-b flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 truncate">{selectedAdvisory.title}</h3>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={() => toggleVisibility(selectedAdvisory)}
+                  className={`p-2 rounded-lg transition-colors ${selectedAdvisory.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                  aria-label={selectedAdvisory.is_visible ? 'Hide from educators' : 'Show to educators'}
+                >
+                  {selectedAdvisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => deleteAdvisory(selectedAdvisory)}
+                  className="p-2 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                  aria-label="Delete file"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          )}
-        </div>
+            <div className="flex-1">
+              <iframe src={selectedAdvisory.pdf_url} className="w-full h-full" title={selectedAdvisory.title} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Upload Modal */}
@@ -427,8 +458,7 @@ const AdvisoriesManagementPage = () => {
                   )}
                 </div>
               </div>
-              
-              {/* Upload Progress */}
+
               {uploading && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
@@ -436,7 +466,7 @@ const AdvisoriesManagementPage = () => {
                     <span className="font-medium text-orange-600">{uploadProgress}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div 
+                    <div
                       className="bg-orange-500 h-2.5 rounded-full transition-all duration-300"
                       style={{ width: `${uploadProgress}%` }}
                     />

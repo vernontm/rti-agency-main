@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import Button from '../../components/ui/Button'
-import Input from '../../components/ui/Input'
 import {
   Inbox,
   Mail,
@@ -12,14 +11,12 @@ import {
   FileText,
   MessageSquare,
   Search,
-  ChevronRight,
   Clock,
   CheckCircle,
   XCircle,
   Archive,
   Reply,
   Star,
-  X,
   ShieldAlert,
   RefreshCw,
   ArrowLeft,
@@ -172,15 +169,6 @@ const InboxPage = () => {
       toast.error('Failed to load inbox')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const getTypeLabel = (type: InboxItem['type']) => {
-    switch (type) {
-      case 'approval': return 'Approval'
-      case 'application': return 'Application'
-      case 'form': return 'Form'
-      case 'contact': return 'Contact'
     }
   }
 
@@ -476,30 +464,22 @@ const InboxPage = () => {
   }
 
   const categories: { key: InboxCategory; label: string; icon: typeof Inbox; count: number; color: string }[] = [
-    { key: 'all', label: 'Inbox', icon: Inbox, count: counts.all, color: 'bg-orange-500' },
-    { key: 'approvals', label: 'Approvals', icon: UserPlus, count: counts.approvals, color: 'bg-blue-500' },
-    { key: 'applications', label: 'Applications', icon: Briefcase, count: counts.applications, color: 'bg-purple-500' },
-    { key: 'forms', label: 'Forms', icon: FileText, count: counts.forms, color: 'bg-green-500' },
-    { key: 'contacts', label: 'Messages', icon: MessageSquare, count: counts.contacts, color: 'bg-teal-500' },
+    { key: 'all', label: 'Inbox', icon: Inbox, count: counts.all, color: 'bg-blue-600' },
+    { key: 'approvals', label: 'Approvals', icon: UserPlus, count: counts.approvals, color: 'bg-blue-600' },
+    { key: 'applications', label: 'Applications', icon: Briefcase, count: counts.applications, color: 'bg-blue-600' },
+    { key: 'forms', label: 'Forms', icon: FileText, count: counts.forms, color: 'bg-blue-600' },
+    { key: 'contacts', label: 'Messages', icon: MessageSquare, count: counts.contacts, color: 'bg-blue-600' },
     { key: 'spam', label: 'Spam', icon: ShieldAlert, count: counts.spam, color: 'bg-red-500' },
   ]
 
   return (
     <div className="-m-6 h-[calc(100vh-0px)] flex flex-col bg-white">
-      {/* Page header */}
+      {/* Minimal header — title left, count right */}
       <div className="flex items-center justify-between px-6 py-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Inbox</h1>
-          <p className="text-gray-500 text-sm">Manage approvals, applications, and messages</p>
-        </div>
-        <button
-          onClick={fetchAllItems}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-          aria-label="Refresh inbox"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {categories.find(c => c.key === category)?.label || 'Inbox'}
+        </h1>
+        <span className="text-sm text-gray-400">{filteredItems.length} messages</span>
       </div>
 
       <div className="flex flex-1 overflow-hidden min-h-0">
@@ -520,41 +500,47 @@ const InboxPage = () => {
 
           {/* Folders */}
           <nav className="flex-1 px-2 pb-3 space-y-0.5">
-            {categories.map((cat) => (
-              <button
-                key={cat.key}
-                onClick={() => setCategory(cat.key)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  category === cat.key
-                    ? 'bg-orange-50 text-orange-700 font-medium'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <cat.icon className="w-4 h-4" />
-                  {cat.label}
-                </span>
-                {cat.count > 0 && (
-                  <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
-                    {cat.count}
+            {categories.map((cat, idx) => (
+              <div key={cat.key}>
+                {/* Divider before Spam */}
+                {idx === 5 && <div className="my-2 border-t border-gray-200" />}
+                <button
+                  onClick={() => setCategory(cat.key)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                    category === cat.key
+                      ? 'bg-orange-50 text-orange-700 font-medium'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <cat.icon className="w-4 h-4" />
+                    {cat.label}
                   </span>
-                )}
-              </button>
+                  {cat.count > 0 && (
+                    <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
+                      {cat.count}
+                    </span>
+                  )}
+                </button>
+              </div>
             ))}
           </nav>
+
+          {/* Refresh at bottom */}
+          <div className="p-3 border-t">
+            <button
+              onClick={fetchAllItems}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Refresh inbox"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          </div>
         </div>
 
-        {/* Message list */}
+        {/* Message rows */}
         <div className="flex-1 flex flex-col min-h-0">
-          {/* List header */}
-          <div className="px-5 py-3 border-b flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">
-              {categories.find(c => c.key === category)?.label || 'Inbox'}
-            </h2>
-            <span className="text-sm text-gray-500">{filteredItems.length} messages</span>
-          </div>
-
-          {/* Rows */}
           <div className="flex-1 overflow-y-auto">
             {filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -566,36 +552,34 @@ const InboxPage = () => {
                 <button
                   key={`${item.type}-${item.id}`}
                   onClick={() => setSelectedItem(item)}
-                  className={`w-full flex items-center gap-4 px-5 py-3.5 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
+                  className={`w-full flex items-center gap-4 px-5 py-3 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
                     !item.isRead ? 'bg-white' : 'bg-gray-50/30'
                   }`}
                 >
                   {/* Avatar */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 ${getAvatarColor(item.title)}`}>
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${getAvatarColor(item.title)}`}>
                     {getInitials(item.title)}
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={`font-semibold truncate ${!item.isRead ? 'text-gray-900' : 'text-gray-600'}`}>
-                        {item.title}
-                      </span>
-                      <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${getStatusBadge(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-900 truncate mt-0.5">
-                      <span className={!item.isRead ? 'font-semibold' : 'font-normal'}>
-                        {item.subtitle}
-                      </span>
-                      <span className="text-gray-400 mx-1.5">&mdash;</span>
-                      <span className="text-gray-500 font-normal">{item.preview}</span>
-                    </p>
+                  {/* Sender name — fixed width column */}
+                  <span className={`w-40 flex-shrink-0 text-sm truncate ${!item.isRead ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>
+                    {item.title}
+                  </span>
+
+                  {/* Subject + preview — single line */}
+                  <div className="flex-1 min-w-0 text-sm truncate">
+                    <span className={!item.isRead ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}>
+                      {item.subtitle}
+                    </span>
+                    <span className="text-gray-400 mx-1.5">&mdash;</span>
+                    <span className="text-gray-400 font-normal">{item.preview}</span>
                   </div>
 
+                  {/* Star */}
+                  <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400 flex-shrink-0 transition-colors" />
+
                   {/* Time */}
-                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">
+                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap w-16 text-right">
                     {formatDate(item.createdAt)}
                   </span>
                 </button>

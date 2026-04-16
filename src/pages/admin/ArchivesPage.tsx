@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import Button from '../../components/ui/Button'
-import { Search, Trash2, FileText, Briefcase, Eye, X, Archive } from 'lucide-react'
+import { Search, Trash2, FileText, Briefcase, Eye, X, Archive, Star } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 type ArchiveType = 'all' | 'form' | 'application'
@@ -15,6 +15,24 @@ interface ArchiveItem {
   status: string
   created_at: string
   data: Record<string, unknown>
+}
+
+const AVATAR_COLORS = [
+  'bg-violet-500', 'bg-orange-500', 'bg-emerald-500', 'bg-teal-500',
+  'bg-rose-500', 'bg-sky-500', 'bg-amber-500', 'bg-indigo-500',
+  'bg-pink-500', 'bg-cyan-500',
+]
+
+const getAvatarColor = (name: string) => {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+const getInitials = (name: string) => {
+  return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
 }
 
 const ArchivesPage = () => {
@@ -36,7 +54,6 @@ const ArchivesPage = () => {
     try {
       const allItems: ArchiveItem[] = []
 
-      // Fetch all form submissions
       const { data: formSubmissions, error: formError } = await supabase
         .from('form_submissions')
         .select(`*, forms (form_name), users:submitted_by (full_name, email)`)
@@ -60,7 +77,6 @@ const ArchivesPage = () => {
         })
       }
 
-      // Fetch processed job applications
       const { data: jobApplications } = await supabase
         .from('job_applications')
         .select('*')
@@ -81,7 +97,6 @@ const ArchivesPage = () => {
         })
       }
 
-      // Sort all items by date
       allItems.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
       setItems(allItems)
     } catch (error) {
@@ -104,7 +119,7 @@ const ArchivesPage = () => {
         case 'application':
           tableName = 'job_applications'
           break
-              }
+      }
 
       const { error } = await supabase
         .from(tableName)
@@ -128,20 +143,18 @@ const ArchivesPage = () => {
     setDeleting(true)
     try {
       const itemsToDelete = items.filter(i => selectedItems.has(i.id))
-      
-      // Group by type for batch deletion
+
       const grouped: Record<string, string[]> = {}
       itemsToDelete.forEach(item => {
         let tableName = ''
         switch (item.type) {
           case 'form': tableName = 'form_submissions'; break
           case 'application': tableName = 'job_applications'; break
-                  }
+        }
         if (!grouped[tableName]) grouped[tableName] = []
         grouped[tableName].push(item.id)
       })
 
-      // Delete from each table
       for (const [tableName, ids] of Object.entries(grouped)) {
         const { error } = await supabase
           .from(tableName)
@@ -180,22 +193,6 @@ const ArchivesPage = () => {
     setSelectedItems(newSet)
   }
 
-  const getTypeIcon = (type: ArchiveType) => {
-    switch (type) {
-      case 'form': return <FileText className="w-4 h-4" />
-      case 'application': return <Briefcase className="w-4 h-4" />
-            default: return <FileText className="w-4 h-4" />
-    }
-  }
-
-  const getTypeColor = (type: ArchiveType) => {
-    switch (type) {
-      case 'form': return 'bg-blue-100 text-blue-600'
-      case 'application': return 'bg-purple-100 text-purple-600'
-            default: return 'bg-gray-100 text-gray-600'
-    }
-  }
-
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
       approved: 'bg-green-100 text-green-700',
@@ -208,8 +205,22 @@ const ArchivesPage = () => {
     return colors[status] || 'bg-gray-100 text-gray-700'
   }
 
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString()
+  }
+
   const filteredItems = items.filter(item => {
-    const matchesSearch = 
+    const matchesSearch =
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesType = typeFilter === 'all' || item.type === typeFilter
@@ -220,7 +231,7 @@ const ArchivesPage = () => {
     all: items.length,
     form: items.filter(i => i.type === 'form').length,
     application: items.filter(i => i.type === 'application').length,
-      }
+  }
 
   if (loading) {
     return (
@@ -231,34 +242,32 @@ const ArchivesPage = () => {
     )
   }
 
-  const AVATAR_COLORS = ['bg-violet-500','bg-orange-500','bg-emerald-500','bg-teal-500','bg-rose-500','bg-sky-500','bg-amber-500','bg-indigo-500']
-  const getAvatarColor = (name: string) => { let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length] }
-  const getInitials = (name: string) => name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
-
   const archiveCategories = [
-    { key: 'all', label: 'All Records', icon: Archive, count: typeCounts.all, color: 'bg-orange-500' },
-    { key: 'form', label: 'Form Submissions', icon: FileText, count: typeCounts.form, color: 'bg-blue-500' },
-    { key: 'application', label: 'Applications', icon: Briefcase, count: typeCounts.application, color: 'bg-purple-500' },
+    { key: 'all', label: 'All Records', icon: Archive, count: typeCounts.all, color: 'bg-blue-600' },
+    { key: 'form', label: 'Form Submissions', icon: FileText, count: typeCounts.form, color: 'bg-blue-600' },
+    { key: 'application', label: 'Applications', icon: Briefcase, count: typeCounts.application, color: 'bg-blue-600' },
   ]
 
   return (
     <div className="-m-6 h-screen flex flex-col bg-white">
+      {/* Minimal header — title left, count right */}
       <div className="flex items-center justify-between px-6 py-4 border-b">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Archives</h1>
-          <p className="text-gray-500 text-sm">View and manage all completed submissions</p>
+        <h1 className="text-xl font-semibold text-gray-900">Archives</h1>
+        <div className="flex items-center gap-3">
+          {selectedItems.size > 0 && (
+            <Button variant="outline" onClick={handleBulkDelete} loading={deleting} className="text-red-600 border-red-300 hover:bg-red-50 text-sm">
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete ({selectedItems.size})
+            </Button>
+          )}
+          <span className="text-sm text-gray-400">{filteredItems.length} records</span>
         </div>
-        {selectedItems.size > 0 && (
-          <Button variant="outline" onClick={handleBulkDelete} loading={deleting} className="text-red-600 border-red-300 hover:bg-red-50">
-            <Trash2 className="w-4 h-4 mr-2" />
-            Delete Selected ({selectedItems.size})
-          </Button>
-        )}
       </div>
 
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Sidebar */}
         <div className="w-56 border-r flex flex-col bg-gray-50/50">
+          {/* Search */}
           <div className="p-3">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -270,13 +279,15 @@ const ArchivesPage = () => {
               />
             </div>
           </div>
+
+          {/* Category nav */}
           <nav className="flex-1 px-2 pb-3 space-y-0.5">
             {archiveCategories.map((cat) => (
               <button
                 key={cat.key}
                 onClick={() => setTypeFilter(cat.key as ArchiveType)}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
-                  typeFilter === cat.key ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-700 hover:bg-gray-100'
+                  typeFilter === cat.key ? 'bg-orange-50 text-orange-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <span className="flex items-center gap-2.5">
@@ -284,7 +295,7 @@ const ArchivesPage = () => {
                   {cat.label}
                 </span>
                 {cat.count > 0 && (
-                  <span className={`text-xs font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color} text-white`}>
+                  <span className={`text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 ${cat.color}`}>
                     {cat.count}
                   </span>
                 )}
@@ -293,21 +304,17 @@ const ArchivesPage = () => {
           </nav>
         </div>
 
-        {/* List */}
+        {/* Record rows */}
         <div className="flex-1 flex flex-col min-h-0">
-          <div className="px-5 py-3 border-b flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
-                onChange={toggleSelectAll}
-                className="rounded border-gray-300"
-              />
-              <h2 className="font-semibold text-gray-900">
-                {archiveCategories.find(c => c.key === typeFilter)?.label || 'All Records'}
-              </h2>
-            </div>
-            <span className="text-sm text-gray-500">{filteredItems.length} records</span>
+          {/* Select all row */}
+          <div className="px-5 py-2.5 border-b flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={selectedItems.size === filteredItems.length && filteredItems.length > 0}
+              onChange={toggleSelectAll}
+              className="rounded border-gray-300"
+            />
+            <span className="text-xs text-gray-400">Select all</span>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -320,37 +327,55 @@ const ArchivesPage = () => {
               filteredItems.map((item) => (
                 <div
                   key={`${item.type}-${item.id}`}
-                  className={`flex items-center gap-4 px-5 py-3.5 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                  className={`flex items-center gap-4 px-5 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
                     selectedItems.has(item.id) ? 'bg-orange-50' : ''
                   }`}
                 >
+                  {/* Checkbox */}
                   <input
                     type="checkbox"
                     checked={selectedItems.has(item.id)}
                     onChange={() => toggleSelect(item.id)}
                     className="rounded border-gray-300 flex-shrink-0"
                   />
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 ${getAvatarColor(item.title)}`}>
+
+                  {/* Avatar */}
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${getAvatarColor(item.title)}`}>
                     {getInitials(item.title)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900 truncate">{item.title}</span>
-                      <span className={`flex-shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${getStatusBadge(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 truncate mt-0.5">{item.subtitle}</p>
+
+                  {/* Name — fixed width */}
+                  <span className="w-40 flex-shrink-0 text-sm font-semibold text-gray-900 truncate">
+                    {item.title}
+                  </span>
+
+                  {/* Subtitle — single line */}
+                  <div className="flex-1 min-w-0 text-sm truncate">
+                    <span className="font-medium text-gray-700">{item.subtitle}</span>
                   </div>
-                  <span className="text-xs text-gray-400 flex-shrink-0">{new Date(item.created_at).toLocaleDateString()}</span>
+
+                  {/* Status badge */}
+                  <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded flex-shrink-0 ${getStatusBadge(item.status)}`}>
+                    {item.status}
+                  </span>
+
+                  {/* Star */}
+                  <Star className="w-4 h-4 text-gray-300 flex-shrink-0" />
+
+                  {/* Time */}
+                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap w-16 text-right">
+                    {formatDate(item.created_at)}
+                  </span>
+
+                  {/* Actions */}
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {(item.data.signed_pdf_url || item.data.resume_url) && (
-                      <button onClick={() => setViewingItem(item)} className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" aria-label="View document">
-                        <Eye className="w-4 h-4" />
+                      <button onClick={() => setViewingItem(item)} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors" aria-label="View document">
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <button onClick={() => handleDelete(item)} className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors" aria-label="Delete permanently">
-                      <Trash2 className="w-4 h-4" />
+                    <button onClick={() => handleDelete(item)} className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors" aria-label="Delete permanently">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
