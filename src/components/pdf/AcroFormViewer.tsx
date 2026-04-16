@@ -682,7 +682,9 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
 
                   {/* Signature */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Signature</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {isManagerMode ? 'Manager Signature' : numSigGroups > 1 ? `Employee Signature #${groupIdx + 1}` : 'Employee Signature'}
+                    </label>
                     <input
                       type="text"
                       value={sig.text}
