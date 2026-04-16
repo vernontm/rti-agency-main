@@ -212,9 +212,48 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
     toast.success('Fields realigned')
   }
 
+  // --- Manager field detection (name OR position-based) ---
+  // A signature field is a manager field if either:
+  //   1. Its name contains "manager"/"supervisor"
+  //   2. It is positioned below an "Approved"/"Rejected" checkbox on the same page
+  //      (the Manager Approval section always appears after those checkboxes)
+  const managerFieldIds = new Set<string>()
+
+  annotationFields.forEach(f => {
+    if (isManagerField(f.fieldName)) {
+      managerFieldIds.add(f.id)
+      return
+    }
+    // Position-based: is there an approved/rejected checkbox above this field on the same page?
+    if (/sig/i.test(f.fieldName) || /date/i.test(f.fieldName)) {
+      const approvalCheckboxes = annotationFields.filter(
+        other =>
+          other.page === f.page &&
+          other.checkBox &&
+          (/approved/i.test(other.fieldName) || /rejected/i.test(other.fieldName))
+      )
+      if (approvalCheckboxes.length > 0) {
+        // Field Y in PDF coords: lower Y = lower on page
+        const fieldY = f.rect[1]
+        const lowestCheckboxY = Math.min(...approvalCheckboxes.map(cb => cb.rect[1]))
+        if (fieldY < lowestCheckboxY) {
+          managerFieldIds.add(f.id)
+        }
+      }
+    }
+  })
+
+  const isManagerFieldForContext = (field: AnnotationField): boolean => {
+    return managerFieldIds.has(field.id)
+  }
+
   // --- Signature group detection ---
-  // Each employee signature field gets its own group. Dates are independent (filled via date picker).
-  const employeeSigFields = annotationFields.filter(f => isEmployeeSignatureField(f.fieldName))
+  // Each employee signature field (non-manager, non-parent) gets its own group.
+  const employeeSigFields = annotationFields.filter(f =>
+    /sig/i.test(f.fieldName) &&
+    !managerFieldIds.has(f.id) &&
+    !isParentSignatureField(f.fieldName)
+  )
 
   // Sort sig fields by page then Y position (top to bottom)
   const sortedSigFields = [...employeeSigFields].sort((a, b) => {
@@ -253,9 +292,9 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
 
   // Determine field editability and role
   const getFieldRole = (field: AnnotationField): 'regular' | 'employee-sig' | 'date' | 'manager' | 'parent' => {
-    if (isManagerField(field.fieldName)) return 'manager'
+    if (isManagerFieldForContext(field)) return 'manager'
     if (isParentSignatureField(field.fieldName)) return 'parent'
-    if (isEmployeeSignatureField(field.fieldName)) return 'employee-sig'
+    if (/sig/i.test(field.fieldName)) return 'employee-sig'
     if (/date/i.test(field.fieldName)) return 'date'
     return 'regular'
   }
@@ -305,6 +344,14 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
   const buildFinalValues = (): Record<string, string | boolean> => {
     const allValues: Record<string, string | boolean> = { ...values }
 
+    // Pass list of manager field names so the PDF generator can skip them
+    const managerFieldNames = annotationFields
+      .filter(f => managerFieldIds.has(f.id))
+      .map(f => f.fieldName)
+    if (managerFieldNames.length > 0) {
+      allValues['_manager_field_names'] = managerFieldNames.join('||')
+    }
+
     if (isEmployeeMode) {
       // Only fill employee signature fields from their group. Dates were entered manually.
       for (const field of annotationFields) {
@@ -330,7 +377,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
       const mgrSig = signatures[0] || defaultSigState()
       const mgrDate = (values['_manager_sign_date'] as string) || ''
       for (const field of annotationFields) {
-        if (isManagerField(field.fieldName)) {
+        if (isManagerFieldForContext(field)) {
           if (/sig/i.test(field.fieldName) && mgrSig.text) {
             allValues[field.fieldName] = mgrSig.text
           }
@@ -394,7 +441,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
   }
 
   // Count fields for notices
-  const managerFieldCount = annotationFields.filter(f => isManagerField(f.fieldName)).length
+  const managerFieldCount = annotationFields.filter(f => managerFieldIds.has(f.id)).length
   const parentFieldCount = annotationFields.filter(f => isParentSignatureField(f.fieldName)).length
 
   return (
@@ -584,7 +631,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
                   }
 
                   // Manager sig field in manager mode — show signature preview
-                  if (isManagerMode && isManagerField(field.fieldName) && /sig/i.test(field.fieldName)) {
+                  if (isManagerMode && isManagerFieldForContext(field) && /sig/i.test(field.fieldName)) {
                     const mgrSig = signatures[0] || defaultSigState()
                     return (
                       <div
@@ -604,7 +651,7 @@ const AcroFormViewer = ({ pdfUrl, formName, onSubmit, onDownload, readOnly = fal
                   }
 
                   // Manager date field in manager mode — native date picker
-                  if (isManagerMode && isManagerField(field.fieldName) && /date/i.test(field.fieldName)) {
+                  if (isManagerMode && isManagerFieldForContext(field) && /date/i.test(field.fieldName)) {
                     return (
                       <input
                         key={field.id}

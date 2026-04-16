@@ -198,8 +198,17 @@ export async function generateAcroFilledPDF(
     return undefined
   }
 
+  // Manager field names passed explicitly from the viewer (handles PDFs where the
+  // field isn't named "manager" but was detected positionally, e.g. below the Approval checkboxes)
+  const explicitManagerFields = new Set(
+    ((values['_manager_field_names'] as string) || '').split('||').filter(Boolean)
+  )
+
   // Helpers to detect special field roles
-  const isManagerFieldName = (name: string) => /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
+  const isManagerFieldName = (name: string) => {
+    if (explicitManagerFields.has(name)) return true
+    return /manager/i.test(name) || /supervisor/i.test(name) || /admin.*sig/i.test(name)
+  }
   // Only skip parent/client/guardian SIGNATURE fields (not "Client Name" etc.)
   const isParentFieldName = (name: string) => /sig/i.test(name) && (/parent/i.test(name) || /guardian/i.test(name) || /client/i.test(name))
 
