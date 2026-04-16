@@ -319,14 +319,37 @@ export async function generateAcroFilledPDF(
     }
   }
 
-  // Update appearances before flatten so text is rendered in the PDF.
-  // Without this, some viewers show blank fields because pdf-lib doesn't auto-generate
-  // appearance streams for setText() calls unless NeedAppearances is set.
+  // Update appearances per-field BEFORE flatten so text is rendered in the output PDF.
+  // We apply the correct font per field:
+  //   - employee signature fields → employee signature font (cursive)
+  //   - manager signature fields → manager signature font (cursive)
+  //   - everything else → Helvetica
+  // Without this, some viewers show blank fields because pdf-lib doesn't
+  // auto-generate appearance streams. Using form.updateFieldAppearances(helvetica)
+  // on ALL fields would clobber the cursive signature fonts, so we iterate manually.
+  let helvetica: Awaited<ReturnType<typeof pdfDoc.embedFont>> | null = null
   try {
-    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
-    form.updateFieldAppearances(helvetica)
+    helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica)
   } catch (e) {
-    console.warn('Failed to update field appearances:', e)
+    console.warn('Failed to embed Helvetica:', e)
+  }
+
+  for (const field of allFields) {
+    if (!(field instanceof PDFTextField)) continue
+    const name = field.getName()
+    if (isParentFieldName(name)) continue
+
+    try {
+      if (isManagerFieldName(name) && /sig/i.test(name) && managerSigFont) {
+        field.updateAppearances(managerSigFont)
+      } else if (/sig/i.test(name) && !isManagerFieldName(name) && signatureFont) {
+        field.updateAppearances(signatureFont)
+      } else if (helvetica) {
+        field.updateAppearances(helvetica)
+      }
+    } catch (e) {
+      console.warn(`Could not update appearance for "${name}":`, e)
+    }
   }
 
   try {
