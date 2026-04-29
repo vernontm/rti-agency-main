@@ -145,6 +145,30 @@ const AdvisoriesManagementPage = () => {
     }
   }
 
+  const handleMoveToFolder = async (advisory: Advisory, newCategory: string) => {
+    if (advisory.category === newCategory) return
+    try {
+      const { error } = await supabase
+        .from('advisories')
+        .update({ category: newCategory })
+        .eq('id', advisory.id)
+
+      if (error) throw error
+
+      setAdvisories(prev =>
+        prev.map(a => a.id === advisory.id ? { ...a, category: newCategory } : a)
+      )
+      // Keep the selection updated
+      if (selectedAdvisory?.id === advisory.id) {
+        setSelectedAdvisory({ ...advisory, category: newCategory })
+      }
+      toast.success(`Moved to "${newCategory}"`)
+    } catch (error) {
+      console.error('Error moving file:', error)
+      toast.error('Failed to move file')
+    }
+  }
+
   const handleDeleteCategory = async (cat: CategoryFolder) => {
     const filesInCategory = advisories.filter(a => a.category === cat.name).length
     const msg = filesInCategory > 0
@@ -605,14 +629,30 @@ const AdvisoriesManagementPage = () => {
                     {advisory.title}
                   </span>
 
-                  {/* Category + description — single line */}
-                  <div className="flex-1 min-w-0 text-sm truncate">
-                    <span className="font-medium text-gray-700">{advisory.category || 'Uncategorized'}</span>
+                  {/* Category dropdown + description — single line */}
+                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                    <select
+                      value={advisory.category || ''}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        handleMoveToFolder(advisory, e.target.value)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded px-2 py-0.5 focus:ring-1 focus:ring-orange-500 focus:outline-none cursor-pointer"
+                      aria-label={`Move ${advisory.title} to folder`}
+                    >
+                      {!advisory.category || !categories.some(c => c.name === advisory.category) ? (
+                        <option value="" disabled>Uncategorized</option>
+                      ) : null}
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      ))}
+                    </select>
                     {advisory.description && (
-                      <>
-                        <span className="text-gray-300 mx-1.5">&mdash;</span>
-                        <span className="text-gray-400">{advisory.description}</span>
-                      </>
+                      <span className="text-sm text-gray-400 truncate">
+                        <span className="text-gray-300 mr-1.5">&mdash;</span>
+                        {advisory.description}
+                      </span>
                     )}
                   </div>
 
@@ -637,23 +677,50 @@ const AdvisoriesManagementPage = () => {
         {/* Preview panel */}
         {selectedAdvisory && (
           <div className="w-[45%] border-l flex flex-col bg-white">
-            <div className="px-4 py-3 border-b flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 truncate">{selectedAdvisory.title}</h3>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button
-                  onClick={() => toggleVisibility(selectedAdvisory)}
-                  className={`p-2 rounded-lg transition-colors ${selectedAdvisory.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
-                  aria-label={selectedAdvisory.is_visible ? 'Hide from educators' : 'Show to educators'}
+            <div className="px-4 py-3 border-b">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-semibold text-gray-900 truncate">{selectedAdvisory.title}</h3>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => toggleVisibility(selectedAdvisory)}
+                    className={`p-2 rounded-lg transition-colors ${selectedAdvisory.is_visible ? 'bg-green-100 text-green-600 hover:bg-green-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                    aria-label={selectedAdvisory.is_visible ? 'Hide from educators' : 'Show to educators'}
+                    title={selectedAdvisory.is_visible ? 'Visible to employees — click to hide' : 'Hidden from employees — click to show'}
+                  >
+                    {selectedAdvisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => deleteAdvisory(selectedAdvisory)}
+                    className="p-2 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
+                    aria-label="Delete file"
+                    title="Delete file"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {/* Folder selector */}
+              <div className="mt-2 flex items-center gap-2">
+                <label htmlFor="folder-select" className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                  <FolderOpen className="w-3 h-3" />
+                  Folder:
+                </label>
+                <select
+                  id="folder-select"
+                  value={selectedAdvisory.category || ''}
+                  onChange={(e) => handleMoveToFolder(selectedAdvisory, e.target.value)}
+                  className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white"
                 >
-                  {selectedAdvisory.is_visible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => deleteAdvisory(selectedAdvisory)}
-                  className="p-2 rounded-lg text-red-600 hover:bg-red-100 transition-colors"
-                  aria-label="Delete file"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  {!selectedAdvisory.category || !categories.some(c => c.name === selectedAdvisory.category) ? (
+                    <option value="" disabled>Uncategorized</option>
+                  ) : null}
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+                <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${selectedAdvisory.is_visible ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {selectedAdvisory.is_visible ? 'Visible' : 'Hidden'}
+                </span>
               </div>
             </div>
             <div className="flex-1">
