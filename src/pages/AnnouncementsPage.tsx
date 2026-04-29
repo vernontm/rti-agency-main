@@ -5,7 +5,7 @@ import type { Tables, AnnouncementAudience } from '../types/database.types'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import { Bell, Plus, X, Send, Users, Clock } from 'lucide-react'
+import { Bell, Plus, X, Send, Users, Clock, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface AnnouncementWithReads extends Tables<'announcements'> {
@@ -70,6 +70,25 @@ const AnnouncementsPage = () => {
     } catch (error) {
       console.error('Error creating announcement:', error)
       toast.error('Failed to create announcement')
+    }
+  }
+
+  const handleDelete = async (announcementId: string, title: string) => {
+    if (!confirm(`Delete announcement "${title}"? This cannot be undone.`)) return
+
+    try {
+      const { error } = await supabase
+        .from('announcements')
+        .delete()
+        .eq('id', announcementId)
+
+      if (error) throw error
+
+      setAnnouncements(prev => prev.filter(a => a.id !== announcementId))
+      toast.success('Announcement deleted')
+    } catch (error) {
+      console.error('Error deleting announcement:', error)
+      toast.error('Failed to delete announcement')
     }
   }
 
@@ -189,6 +208,19 @@ const AnnouncementsPage = () => {
                     )}
                   </div>
                 </div>
+                {isAdmin && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDelete(announcement.id, announcement.title)
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    aria-label={`Delete announcement: ${announcement.title}`}
+                    title="Delete announcement"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </Card>
           )
