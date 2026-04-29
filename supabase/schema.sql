@@ -15,7 +15,7 @@ CREATE TABLE users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL,
-    role user_role NOT NULL DEFAULT 'client',
+    role user_role NOT NULL DEFAULT 'employee',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -449,7 +449,7 @@ BEGIN
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-        COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'client')
+        COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'employee')
     );
     RETURN NEW;
 END;

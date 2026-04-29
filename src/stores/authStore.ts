@@ -141,7 +141,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email: string, password: string, fullName: string, role: UserRole = 'client') => {
+  signUp: async (email: string, password: string, fullName: string, role: UserRole = 'employee') => {
     set({ loading: true })
     try {
       const { error } = await supabase.auth.signUp({
