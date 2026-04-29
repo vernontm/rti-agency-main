@@ -164,7 +164,7 @@ const LandingPage = () => {
               </span>
               <span className="flex items-center gap-1.5">
                 <Clock className="w-3 h-3 text-[#fe9226]" />
-                Mon-Fri 8AM - 5PM
+                Mon-Fri 9AM - 5PM
               </span>
             </div>
             <a href="tel:661-948-6760" className="flex items-center gap-1.5 hover:text-white transition-colors">
