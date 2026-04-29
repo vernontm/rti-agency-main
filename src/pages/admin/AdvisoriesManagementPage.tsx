@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { Plus, Trash2, Eye, EyeOff, FileText, Upload, X, Search, FolderOpen, Download, Star } from 'lucide-react'
+import { Plus, Trash2, Eye, EyeOff, FileText, Upload, X, Search, FolderOpen, Download, Star, FolderPlus, Edit2, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface Advisory {
@@ -16,43 +16,163 @@ interface Advisory {
   uploaded_by: string | null
   created_at: string
   updated_at: string
-  category: 'advisory' | 'downloads'
+  category: string | null
+}
+
+interface CategoryFolder {
+  id: string
+  name: string
+  sort_order: number
+  is_default: boolean
+  created_at: string
 }
 
 const AdvisoriesManagementPage = () => {
   const { profile } = useAuthStore()
   const [advisories, setAdvisories] = useState<Advisory[]>([])
+  const [categories, setCategories] = useState<CategoryFolder[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [selectedAdvisory, setSelectedAdvisory] = useState<Advisory | null>(null)
-  const [newAdvisory, setNewAdvisory] = useState({ title: '', description: '', category: 'advisory' as 'advisory' | 'downloads' })
+  const [newAdvisory, setNewAdvisory] = useState({ title: '', description: '', category: '' })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [fileCategoryFilter, setFileCategoryFilter] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [renamingCategoryId, setRenamingCategoryId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const location = useLocation()
 
   useEffect(() => {
     setLoading(true)
-    fetchAdvisories()
+    fetchAll()
   }, [location.pathname])
 
-  const fetchAdvisories = async () => {
+  const fetchAll = async () => {
     try {
-      const { data, error } = await supabase
-        .from('advisories')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const [{ data: advData }, { data: catData }] = await Promise.all([
+        supabase.from('advisories').select('*').order('created_at', { ascending: false }),
+        supabase.from('advisory_categories').select('*').order('sort_order', { ascending: true }).order('name', { ascending: true }),
+      ])
 
-      if (error) throw error
-      setAdvisories(data || [])
+      // Normalize legacy lowercase categories ("advisory"/"downloads") to canonical names
+      const normalizedAdv = (advData as Advisory[] || []).map(a => ({
+        ...a,
+        category: a.category === 'advisory' ? 'Advisories'
+          : a.category === 'downloads' ? 'Downloads'
+          : a.category,
+      }))
+      setAdvisories(normalizedAdv)
+      setCategories((catData as CategoryFolder[]) || [])
+
+      // Set default category for new uploads if none picked
+      if (catData && catData.length > 0 && !newAdvisory.category) {
+        setNewAdvisory(prev => ({ ...prev, category: catData[0].name }))
+      }
     } catch (error) {
-      console.error('Error fetching advisories:', error)
-      toast.error('Failed to load advisories')
+      console.error('Error fetching data:', error)
+      toast.error('Failed to load files')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    const name = newCategoryName.trim()
+    if (!name) {
+      toast.error('Please enter a category name')
+      return
+    }
+    if (categories.some(c => c.name.toLowerCase() === name.toLowerCase())) {
+      toast.error('A category with that name already exists')
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('advisory_categories')
+        .insert({ name, sort_order: categories.length + 10 })
+        .select()
+        .single()
+
+      if (error) throw error
+      setCategories(prev => [...prev, data as CategoryFolder])
+      toast.success(`Folder "${name}" created`)
+      setNewCategoryName('')
+      setShowNewCategoryInput(false)
+    } catch (error) {
+      console.error('Error creating category:', error)
+      toast.error('Failed to create folder')
+    }
+  }
+
+  const handleRenameCategory = async (cat: CategoryFolder) => {
+    const newName = renameValue.trim()
+    if (!newName || newName === cat.name) {
+      setRenamingCategoryId(null)
+      return
+    }
+    if (categories.some(c => c.id !== cat.id && c.name.toLowerCase() === newName.toLowerCase())) {
+      toast.error('A category with that name already exists')
+      return
+    }
+    try {
+      // Rename category
+      const { error: catErr } = await supabase
+        .from('advisory_categories')
+        .update({ name: newName })
+        .eq('id', cat.id)
+      if (catErr) throw catErr
+
+      // Update advisories that reference the old name
+      const { error: advErr } = await supabase
+        .from('advisories')
+        .update({ category: newName })
+        .eq('category', cat.name)
+      if (advErr) console.warn('Could not migrate advisories:', advErr)
+
+      setCategories(prev => prev.map(c => c.id === cat.id ? { ...c, name: newName } : c))
+      setAdvisories(prev => prev.map(a => a.category === cat.name ? { ...a, category: newName } : a))
+      if (fileCategoryFilter === cat.name) setFileCategoryFilter(newName)
+      toast.success('Folder renamed')
+      setRenamingCategoryId(null)
+    } catch (error) {
+      console.error('Error renaming category:', error)
+      toast.error('Failed to rename folder')
+    }
+  }
+
+  const handleDeleteCategory = async (cat: CategoryFolder) => {
+    const filesInCategory = advisories.filter(a => a.category === cat.name).length
+    const msg = filesInCategory > 0
+      ? `Delete folder "${cat.name}"? ${filesInCategory} file(s) inside will become uncategorized (the files themselves will NOT be deleted).`
+      : `Delete folder "${cat.name}"?`
+    if (!confirm(msg)) return
+
+    try {
+      // Set advisories in this category to null category (uncategorized)
+      const { error: advErr } = await supabase
+        .from('advisories')
+        .update({ category: null })
+        .eq('category', cat.name)
+      if (advErr) console.warn('Could not uncategorize advisories:', advErr)
+
+      const { error } = await supabase
+        .from('advisory_categories')
+        .delete()
+        .eq('id', cat.id)
+      if (error) throw error
+
+      setCategories(prev => prev.filter(c => c.id !== cat.id))
+      setAdvisories(prev => prev.map(a => a.category === cat.name ? { ...a, category: null } : a))
+      if (fileCategoryFilter === cat.name) setFileCategoryFilter('all')
+      toast.success('Folder deleted')
+    } catch (error) {
+      console.error('Error deleting category:', error)
+      toast.error('Failed to delete folder')
     }
   }
 
@@ -127,14 +247,14 @@ const AdvisoriesManagementPage = () => {
         throw insertError
       }
 
-      toast.success('Advisory uploaded successfully')
+      toast.success('File uploaded successfully')
       setShowUploadModal(false)
-      setNewAdvisory({ title: '', description: '', category: 'advisory' })
+      setNewAdvisory({ title: '', description: '', category: categories[0]?.name || '' })
       setSelectedFile(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
       }
-      fetchAdvisories()
+      fetchAll()
     } catch (error) {
       console.error('Error uploading advisory:', error)
       toast.error('Failed to upload advisory')
@@ -215,20 +335,24 @@ const AdvisoriesManagementPage = () => {
     )
   }
 
-  const fileCategories = [
+  // Top-level system filters
+  const systemFilters = [
     { key: 'all', label: 'All Files', icon: FolderOpen, count: advisories.length, color: 'bg-blue-600' },
-    { key: 'advisory', label: 'Advisories', icon: FileText, count: advisories.filter(a => a.category === 'advisory').length, color: 'bg-blue-600' },
-    { key: 'downloads', label: 'Downloads', icon: Download, count: advisories.filter(a => a.category === 'downloads').length, color: 'bg-blue-600' },
-    { key: 'visible', label: 'Visible', icon: Eye, count: advisories.filter(a => a.is_visible).length, color: 'bg-green-600' },
-    { key: 'hidden', label: 'Hidden', icon: EyeOff, count: advisories.filter(a => !a.is_visible).length, color: 'bg-gray-500' },
+    { key: '__visible', label: 'Visible', icon: Eye, count: advisories.filter(a => a.is_visible).length, color: 'bg-green-600' },
+    { key: '__hidden', label: 'Hidden', icon: EyeOff, count: advisories.filter(a => !a.is_visible).length, color: 'bg-gray-500' },
   ]
+
+  // Uncategorized files count (files whose category doesn't match any folder)
+  const knownCategoryNames = new Set(categories.map(c => c.name))
+  const uncategorizedCount = advisories.filter(a => !a.category || !knownCategoryNames.has(a.category)).length
 
   const filteredAdvisories = advisories.filter(a => {
     let matchesCategory = true
-    if (fileCategoryFilter === 'advisory') matchesCategory = a.category === 'advisory'
-    if (fileCategoryFilter === 'downloads') matchesCategory = a.category === 'downloads'
-    if (fileCategoryFilter === 'visible') matchesCategory = a.is_visible
-    if (fileCategoryFilter === 'hidden') matchesCategory = !a.is_visible
+    if (fileCategoryFilter === 'all') matchesCategory = true
+    else if (fileCategoryFilter === '__visible') matchesCategory = a.is_visible
+    else if (fileCategoryFilter === '__hidden') matchesCategory = !a.is_visible
+    else if (fileCategoryFilter === '__uncategorized') matchesCategory = !a.category || !knownCategoryNames.has(a.category)
+    else matchesCategory = a.category === fileCategoryFilter
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
@@ -263,8 +387,9 @@ const AdvisoriesManagementPage = () => {
           </div>
 
           {/* Category nav */}
-          <nav className="flex-1 px-2 pb-3">
-            {fileCategories.map((cat, idx) => (
+          <nav className="flex-1 px-2 pb-3 overflow-y-auto">
+            {/* System filters */}
+            {systemFilters.map((cat, idx) => (
               <div key={cat.key}>
                 {idx > 0 && <div className="mx-2 border-t border-gray-200" />}
                 <button
@@ -287,6 +412,161 @@ const AdvisoriesManagementPage = () => {
                 </button>
               </div>
             ))}
+
+            {/* Folders header */}
+            <div className="mx-2 my-2 border-t border-gray-200" />
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">Folders</p>
+              <button
+                onClick={() => { setShowNewCategoryInput(true); setNewCategoryName('') }}
+                className="p-1 text-gray-400 hover:text-orange-600 hover:bg-gray-100 rounded transition-colors"
+                aria-label="New folder"
+                title="New folder"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* New folder input */}
+            {showNewCategoryInput && (
+              <div className="px-2 pb-2">
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateCategory()
+                      if (e.key === 'Escape') { setShowNewCategoryInput(false); setNewCategoryName('') }
+                    }}
+                    placeholder="Folder name"
+                    autoFocus
+                    className="flex-1 px-2 py-1.5 text-sm border border-orange-300 rounded focus:ring-1 focus:ring-orange-500 focus:outline-none bg-white"
+                  />
+                  <button
+                    onClick={handleCreateCategory}
+                    className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                    aria-label="Create folder"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => { setShowNewCategoryInput(false); setNewCategoryName('') }}
+                    className="p-1.5 text-gray-400 hover:bg-gray-100 rounded"
+                    aria-label="Cancel"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* User-defined folders */}
+            {categories.map((cat) => {
+              const count = advisories.filter(a => a.category === cat.name).length
+              const isRenaming = renamingCategoryId === cat.id
+              const isActive = fileCategoryFilter === cat.name
+
+              return (
+                <div key={cat.id} className="group">
+                  {isRenaming ? (
+                    <div className="flex items-center gap-1 px-2 py-1">
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleRenameCategory(cat)
+                          if (e.key === 'Escape') setRenamingCategoryId(null)
+                        }}
+                        autoFocus
+                        className="flex-1 px-2 py-1.5 text-sm border border-orange-300 rounded focus:ring-1 focus:ring-orange-500 focus:outline-none bg-white"
+                      />
+                      <button
+                        onClick={() => handleRenameCategory(cat)}
+                        className="p-1.5 text-green-600 hover:bg-green-50 rounded"
+                        aria-label="Save"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setRenamingCategoryId(null)}
+                        className="p-1.5 text-gray-400 hover:bg-gray-100 rounded"
+                        aria-label="Cancel"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setFileCategoryFilter(cat.name)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                        isActive
+                          ? 'bg-orange-50 text-orange-700 font-medium'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <FolderOpen className="w-4 h-4 flex-shrink-0" />
+                        <span className="truncate">{cat.name}</span>
+                      </span>
+                      <span className="flex items-center gap-1 flex-shrink-0">
+                        {/* Rename + Delete buttons (visible on hover) */}
+                        {!cat.is_default && (
+                          <>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); setRenamingCategoryId(cat.id); setRenameValue(cat.name) }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded text-gray-500 transition-opacity"
+                              aria-label={`Rename ${cat.name}`}
+                              title="Rename"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </span>
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat) }}
+                              className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded text-red-500 transition-opacity"
+                              aria-label={`Delete ${cat.name}`}
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </span>
+                          </>
+                        )}
+                        {count > 0 && (
+                          <span className="text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 bg-blue-600">
+                            {count}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Uncategorized */}
+            {uncategorizedCount > 0 && (
+              <button
+                onClick={() => setFileCategoryFilter('__uncategorized')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                  fileCategoryFilter === '__uncategorized'
+                    ? 'bg-orange-50 text-orange-700 font-medium'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                <span className="flex items-center gap-2.5 italic">
+                  <FolderOpen className="w-4 h-4" />
+                  Uncategorized
+                </span>
+                <span className="text-xs text-white font-bold rounded-full min-w-[22px] h-[22px] flex items-center justify-center px-1.5 bg-gray-400">
+                  {uncategorizedCount}
+                </span>
+              </button>
+            )}
           </nav>
 
           {/* Upload button at bottom */}
@@ -327,7 +607,7 @@ const AdvisoriesManagementPage = () => {
 
                   {/* Category + description — single line */}
                   <div className="flex-1 min-w-0 text-sm truncate">
-                    <span className="font-medium text-gray-700 capitalize">{advisory.category}</span>
+                    <span className="font-medium text-gray-700">{advisory.category || 'Uncategorized'}</span>
                     {advisory.description && (
                       <>
                         <span className="text-gray-300 mx-1.5">&mdash;</span>
@@ -385,14 +665,14 @@ const AdvisoriesManagementPage = () => {
 
       {/* Upload Modal */}
       {showUploadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') { setShowUploadModal(false); setNewAdvisory({ title: '', description: '', category: 'advisory' }); setSelectedFile(null); } }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => { if (e.key === 'Escape') { setShowUploadModal(false); setNewAdvisory({ title: '', description: '', category: categories[0]?.name || '' }); setSelectedFile(null); } }}>
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4" role="dialog" aria-modal="true" aria-labelledby="upload-advisory-title">
             <div className="flex items-center justify-between p-4 border-b">
               <h2 id="upload-advisory-title" className="text-lg font-semibold">Upload File</h2>
               <button
                 onClick={() => {
                   setShowUploadModal(false)
-                  setNewAdvisory({ title: '', description: '', category: 'advisory' })
+                  setNewAdvisory({ title: '', description: '', category: categories[0]?.name || '' })
                   setSelectedFile(null)
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg"
@@ -421,15 +701,18 @@ const AdvisoriesManagementPage = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Folder *</label>
                 <select
                   value={newAdvisory.category}
-                  onChange={(e) => setNewAdvisory(prev => ({ ...prev, category: e.target.value as 'advisory' | 'downloads' }))}
+                  onChange={(e) => setNewAdvisory(prev => ({ ...prev, category: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                 >
-                  <option value="advisory">Advisory</option>
-                  <option value="downloads">Downloads</option>
+                  {categories.length === 0 && <option value="">No folders yet</option>}
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">Create a new folder from the sidebar to add more options.</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">File *</label>
@@ -478,7 +761,7 @@ const AdvisoriesManagementPage = () => {
                 variant="outline"
                 onClick={() => {
                   setShowUploadModal(false)
-                  setNewAdvisory({ title: '', description: '', category: 'advisory' })
+                  setNewAdvisory({ title: '', description: '', category: categories[0]?.name || '' })
                   setSelectedFile(null)
                   setUploadProgress(0)
                 }}

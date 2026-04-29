@@ -230,9 +230,32 @@ CREATE TABLE advisories (
     pdf_url TEXT NOT NULL,
     is_visible BOOLEAN NOT NULL DEFAULT false,
     uploaded_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    category TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Custom file categories/folders (admin-managed)
+CREATE TABLE advisory_categories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_default BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO advisory_categories (name, sort_order, is_default) VALUES
+    ('Advisories', 1, true),
+    ('Downloads', 2, true)
+ON CONFLICT (name) DO NOTHING;
+
+ALTER TABLE advisory_categories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view categories" ON advisory_categories
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can manage categories" ON advisory_categories
+    USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'));
 
 CREATE INDEX idx_advisories_is_visible ON advisories(is_visible);
 CREATE INDEX idx_advisories_created_at ON advisories(created_at DESC);
