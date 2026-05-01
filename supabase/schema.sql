@@ -467,13 +467,19 @@ CREATE TRIGGER update_forms_updated_at
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.users (id, email, full_name, role)
+    INSERT INTO public.users (id, email, full_name, role, status)
     VALUES (
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.email),
-        COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'employee')
-    );
+        COALESCE((NEW.raw_user_meta_data->>'role')::user_role, 'employee'),
+        'pending'
+    )
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+    -- Don't block auth signup if profile insert fails — log and continue
+    RAISE WARNING 'handle_new_user failed for %: %', NEW.email, SQLERRM;
     RETURN NEW;
 END;
 $$ language 'plpgsql' SECURITY DEFINER;
