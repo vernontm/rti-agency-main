@@ -158,14 +158,20 @@ const AdvisoriesManagementPage = () => {
       setAdvisories(prev =>
         prev.map(a => a.id === advisory.id ? { ...a, category: newCategory } : a)
       )
-      // Keep the selection updated
       if (selectedAdvisory?.id === advisory.id) {
         setSelectedAdvisory({ ...advisory, category: newCategory })
       }
       toast.success(`Moved to "${newCategory}"`)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error moving file:', error)
-      toast.error('Failed to move file')
+      const msg = error?.message || ''
+      if (/check constraint|enum/i.test(msg)) {
+        toast.error('The advisories table is restricting category values. Run the migration SQL to drop the check constraint.')
+      } else if (/policy|permission|rls/i.test(msg)) {
+        toast.error('Permission denied. Check that you are signed in as admin.')
+      } else {
+        toast.error(`Failed to move file: ${msg || 'unknown error'}`)
+      }
     }
   }
 
