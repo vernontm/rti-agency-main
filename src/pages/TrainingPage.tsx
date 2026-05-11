@@ -4,7 +4,7 @@ import { useAuthStore } from '../stores/authStore'
 import type { Tables } from '../types/database.types'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import { Play, CheckCircle, Clock, Award, X, ChevronDown, ChevronRight, BookOpen, Lock } from 'lucide-react'
+import { Play, CheckCircle, Clock, Award, X, ChevronDown, ChevronRight, BookOpen, Lock, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import VideoQuiz from '../components/training/VideoQuiz'
 // Using native HTML5 video element instead of ReactPlayer for better Supabase storage compatibility
@@ -42,6 +42,8 @@ const TrainingPage = () => {
   const [showEngagementCheck, setShowEngagementCheck] = useState(false)
   const [engagementInterval, setEngagementInterval] = useState(60) // Default 60 seconds
   const [showQuiz, setShowQuiz] = useState(false)
+  const [videoError, setVideoError] = useState<string | null>(null)
+  const [videoLoading, setVideoLoading] = useState(false)
   const playerRef = useRef<HTMLVideoElement>(null)
   const lastCheckInRef = useRef(0)
 
@@ -56,6 +58,8 @@ const TrainingPage = () => {
       lastCheckInRef.current = 0
       setShowEngagementCheck(false)
       setPlaying(true) // Auto-play when video is selected
+      setVideoError(null)
+      setVideoLoading(true)
     }
   }, [selectedVideo])
 
@@ -452,21 +456,84 @@ const TrainingPage = () => {
               />
             ) : (
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={playerRef}
-                  src={selectedVideo.video_url}
-                  className="w-full h-full"
-                  controls
-                  autoPlay
-                  playsInline
-                  onTimeUpdate={(e) => {
-                    const video = e.target as HTMLVideoElement
-                    handleProgress({ playedSeconds: video.currentTime })
-                  }}
-                  onEnded={handleVideoEnd}
-                  onPlay={() => setPlaying(true)}
-                  onPause={() => setPlaying(false)}
-                />
+                {!selectedVideo.video_url ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
+                    <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
+                    <h3 className="text-lg font-semibold mb-2">No video file</h3>
+                    <p className="text-sm text-gray-300 max-w-md">
+                      This video doesn't have a file attached. An admin needs to upload one in the Video Manager.
+                    </p>
+                  </div>
+                ) : videoError ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
+                    <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
+                    <h3 className="text-lg font-semibold mb-2">Couldn't load video</h3>
+                    <p className="text-sm text-gray-300 max-w-md mb-2">{videoError}</p>
+                    <p className="text-xs text-gray-400 max-w-md mb-4 break-all">URL: {selectedVideo.video_url}</p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setVideoError(null)
+                          setVideoLoading(true)
+                          playerRef.current?.load()
+                        }}
+                      >
+                        Retry
+                      </Button>
+                      <a
+                        href={selectedVideo.video_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-white/10 text-white rounded-lg hover:bg-white/20"
+                      >
+                        Open URL directly
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <video
+                      ref={playerRef}
+                      src={selectedVideo.video_url}
+                      className="w-full h-full"
+                      controls
+                      autoPlay
+                      playsInline
+                      onLoadStart={() => { setVideoLoading(true); setVideoError(null) }}
+                      onCanPlay={() => setVideoLoading(false)}
+                      onError={(e) => {
+                        setVideoLoading(false)
+                        const v = e.currentTarget
+                        const err = v.error
+                        let msg = 'The video file could not be played.'
+                        if (err) {
+                          switch (err.code) {
+                            case 1: msg = 'Loading was aborted.'; break
+                            case 2: msg = 'Network error — the file URL may be unreachable.'; break
+                            case 3: msg = 'The video file is corrupted or in an unsupported format.'; break
+                            case 4: msg = 'The video file format isn\'t supported by your browser, or the URL is invalid/expired.'; break
+                          }
+                        }
+                        console.error('Video error:', err, 'URL:', selectedVideo.video_url)
+                        setVideoError(msg)
+                      }}
+                      onTimeUpdate={(e) => {
+                        const video = e.target as HTMLVideoElement
+                        handleProgress({ playedSeconds: video.currentTime })
+                      }}
+                      onEnded={handleVideoEnd}
+                      onPlay={() => setPlaying(true)}
+                      onPause={() => setPlaying(false)}
+                    />
+                    {videoLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-white"></div>
+                      </div>
+                    )}
+                  </>
+                )}
 
                 {showEngagementCheck && (
                   <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
