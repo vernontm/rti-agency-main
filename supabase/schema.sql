@@ -236,6 +236,26 @@ CREATE TABLE advisories (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Editable calendar holidays (federal seed + custom admin-added)
+CREATE TABLE IF NOT EXISTS calendar_holidays (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    date DATE NOT NULL,
+    name TEXT NOT NULL,
+    is_federal BOOLEAN NOT NULL DEFAULT false,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_holidays_date ON calendar_holidays(date);
+
+ALTER TABLE calendar_holidays ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view holidays" ON calendar_holidays
+    FOR SELECT USING (true);
+
+CREATE POLICY "Admins can manage holidays" ON calendar_holidays
+    USING (EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'admin'));
+
 -- Custom file categories/folders (admin-managed)
 CREATE TABLE advisory_categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

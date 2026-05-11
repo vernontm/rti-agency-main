@@ -10,6 +10,8 @@ import {
   X,
   Calendar as CalendarIcon,
   Star,
+  Trash2,
+  Settings,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -24,26 +26,46 @@ interface CalendarNote {
 }
 
 interface Holiday {
+  id?: string
   date: string
   name: string
+  is_federal?: boolean
 }
 
-// US Federal Holidays for 2024-2026
-const getHolidays = (year: number): Holiday[] => {
-  const holidays: Holiday[] = [
-    { date: `${year}-01-01`, name: "New Year's Day" },
-    { date: `${year}-01-15`, name: "Martin Luther King Jr. Day" },
-    { date: `${year}-02-19`, name: "Presidents' Day" },
-    { date: `${year}-05-27`, name: "Memorial Day" },
-    { date: `${year}-06-19`, name: "Juneteenth" },
-    { date: `${year}-07-04`, name: "Independence Day" },
-    { date: `${year}-09-02`, name: "Labor Day" },
-    { date: `${year}-10-14`, name: "Columbus Day" },
-    { date: `${year}-11-11`, name: "Veterans Day" },
-    { date: `${year}-11-28`, name: "Thanksgiving" },
-    { date: `${year}-12-25`, name: "Christmas Day" },
+// Get the nth weekday of a month (e.g., 3rd Monday = nthWeekday(year, 0, 1, 3))
+// weekday: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+const nthWeekday = (year: number, month: number, weekday: number, n: number): string => {
+  const firstOfMonth = new Date(year, month, 1)
+  const firstWeekday = firstOfMonth.getDay()
+  const offset = (weekday - firstWeekday + 7) % 7
+  const day = 1 + offset + (n - 1) * 7
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+// Get the LAST occurrence of a weekday in a month (e.g., last Monday of May for Memorial Day)
+const lastWeekday = (year: number, month: number, weekday: number): string => {
+  const lastDay = new Date(year, month + 1, 0)
+  const lastWeekdayNum = lastDay.getDay()
+  const offset = (lastWeekdayNum - weekday + 7) % 7
+  const day = lastDay.getDate() - offset
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+// Compute correct US federal holidays for any given year
+const computeFederalHolidays = (year: number): Holiday[] => {
+  return [
+    { date: `${year}-01-01`, name: "New Year's Day", is_federal: true },
+    { date: nthWeekday(year, 0, 1, 3), name: "Martin Luther King Jr. Day", is_federal: true }, // 3rd Monday of January
+    { date: nthWeekday(year, 1, 1, 3), name: "Presidents' Day", is_federal: true }, // 3rd Monday of February
+    { date: lastWeekday(year, 4, 1), name: "Memorial Day", is_federal: true }, // last Monday of May
+    { date: `${year}-06-19`, name: "Juneteenth", is_federal: true },
+    { date: `${year}-07-04`, name: "Independence Day", is_federal: true },
+    { date: nthWeekday(year, 8, 1, 1), name: "Labor Day", is_federal: true }, // 1st Monday of September
+    { date: nthWeekday(year, 9, 1, 2), name: "Columbus Day", is_federal: true }, // 2nd Monday of October
+    { date: `${year}-11-11`, name: "Veterans Day", is_federal: true },
+    { date: nthWeekday(year, 10, 4, 4), name: "Thanksgiving", is_federal: true }, // 4th Thursday of November
+    { date: `${year}-12-25`, name: "Christmas Day", is_federal: true },
   ]
-  return holidays
 }
 
 const CalendarPage = () => {
@@ -53,20 +75,130 @@ const CalendarPage = () => {
 
   const [currentDate, setCurrentDate] = useState(new Date())
   const [notes, setNotes] = useState<CalendarNote[]>([])
+  const [holidays, setHolidays] = useState<Holiday[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [noteTitle, setNoteTitle] = useState('')
   const [noteDescription, setNoteDescription] = useState('')
   const [noteColor, setNoteColor] = useState('blue')
   const [loading, setLoading] = useState(true)
+  const [showHolidaysModal, setShowHolidaysModal] = useState(false)
+  const [newHolidayDate, setNewHolidayDate] = useState('')
+  const [newHolidayName, setNewHolidayName] = useState('')
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
-  const holidays = getHolidays(year)
 
   useEffect(() => {
     fetchNotes()
+    fetchHolidays()
   }, [year, month])
+
+  const fetchHolidays = async () => {
+    try {
+      // Fetch holidays for current year (and adjacent months for cleaner UX)
+      const startOfYear = `${year}-01-01`
+      const endOfYear = `${year}-12-31`
+      const { data, error } = await supabase
+        .from('calendar_holidays')
+        .select('*')
+        .gte('date', startOfYear)
+        .lte('date', endOfYear)
+        .order('date')
+
+      if (error) throw error
+
+      // If no holidays exist for this year, auto-seed the federal ones
+      if (!data || data.length === 0) {
+        const federalHolidays = computeFederalHolidays(year)
+        const { data: inserted, error: insertError } = await supabase
+          .from('calendar_holidays')
+          .insert(federalHolidays.map(h => ({ date: h.date, name: h.name, is_federal: true })))
+          .select()
+
+        if (insertError) {
+          // RLS may block non-admins from seeding; fall back to computed federal holidays only
+          console.warn('Could not seed federal holidays (likely RLS):', insertError)
+          setHolidays(federalHolidays)
+          return
+        }
+        setHolidays((inserted as Holiday[]) || federalHolidays)
+        return
+      }
+
+      setHolidays(data as Holiday[])
+    } catch (error) {
+      console.error('Error fetching holidays:', error)
+      // Fall back to computed federal holidays
+      setHolidays(computeFederalHolidays(year))
+    }
+  }
+
+  const handleAddHoliday = async () => {
+    if (!newHolidayDate || !newHolidayName.trim()) {
+      toast.error('Date and name are required')
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('calendar_holidays')
+        .insert({
+          date: newHolidayDate,
+          name: newHolidayName.trim(),
+          is_federal: false,
+          created_by: profile?.id,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      setHolidays(prev => [...prev, data as Holiday].sort((a, b) => a.date.localeCompare(b.date)))
+      setNewHolidayDate('')
+      setNewHolidayName('')
+      toast.success('Holiday added')
+    } catch (error: any) {
+      console.error('Error adding holiday:', error)
+      toast.error(`Failed: ${error?.message || 'unknown error'}`)
+    }
+  }
+
+  const handleDeleteHoliday = async (holiday: Holiday) => {
+    if (!holiday.id) {
+      toast.error('Cannot delete this holiday (no ID — refresh and try again)')
+      return
+    }
+    if (!confirm(`Delete "${holiday.name}" on ${holiday.date}?`)) return
+    try {
+      const { error } = await supabase
+        .from('calendar_holidays')
+        .delete()
+        .eq('id', holiday.id)
+
+      if (error) throw error
+      setHolidays(prev => prev.filter(h => h.id !== holiday.id))
+      toast.success('Holiday deleted')
+    } catch (error: any) {
+      console.error('Error deleting holiday:', error)
+      toast.error(`Failed: ${error?.message || 'unknown error'}`)
+    }
+  }
+
+  const handleUpdateHolidayDate = async (holiday: Holiday, newDate: string) => {
+    if (!holiday.id || newDate === holiday.date) return
+    try {
+      const { error } = await supabase
+        .from('calendar_holidays')
+        .update({ date: newDate })
+        .eq('id', holiday.id)
+
+      if (error) throw error
+      setHolidays(prev => prev.map(h => h.id === holiday.id ? { ...h, date: newDate } : h).sort((a, b) => a.date.localeCompare(b.date)))
+      toast.success('Date updated')
+    } catch (error: any) {
+      console.error('Error updating holiday:', error)
+      toast.error(`Failed: ${error?.message || 'unknown error'}`)
+    }
+  }
 
   const fetchNotes = async () => {
     try {
@@ -241,6 +373,12 @@ const CalendarPage = () => {
           <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
           <p className="text-gray-600">View holidays and important dates</p>
         </div>
+        {isAdmin && (
+          <Button variant="outline" onClick={() => setShowHolidaysModal(true)}>
+            <Settings className="w-4 h-4 mr-2" />
+            Manage Holidays
+          </Button>
+        )}
       </div>
 
       {/* Calendar Card */}
@@ -495,6 +633,95 @@ const CalendarPage = () => {
               </Button>
               <Button onClick={handleAddNote}>
                 Add Note
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Holidays Modal */}
+      {showHolidaysModal && isAdmin && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onKeyDown={(e) => e.key === 'Escape' && setShowHolidaysModal(false)}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="holidays-modal-title">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div>
+                <h2 id="holidays-modal-title" className="text-xl font-bold text-gray-900">Manage Holidays</h2>
+                <p className="text-sm text-gray-500">Holidays for {year}</p>
+              </div>
+              <button
+                onClick={() => setShowHolidaysModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Add new holiday */}
+              <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Add Holiday</p>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={newHolidayDate}
+                    onChange={(e) => setNewHolidayDate(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                  <input
+                    type="text"
+                    value={newHolidayName}
+                    onChange={(e) => setNewHolidayName(e.target.value)}
+                    placeholder="Holiday name"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                  />
+                  <Button onClick={handleAddHoliday} size="sm">
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* List of holidays */}
+              <div className="space-y-1">
+                {holidays.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No holidays yet</p>
+                ) : (
+                  holidays.map(h => (
+                    <div
+                      key={h.id || h.date + h.name}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 rounded-lg"
+                    >
+                      <input
+                        type="date"
+                        defaultValue={h.date}
+                        onBlur={(e) => handleUpdateHolidayDate(h, e.target.value)}
+                        className="px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
+                      />
+                      <span className="flex-1 text-sm text-gray-900">{h.name}</span>
+                      {h.is_federal && (
+                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                          Federal
+                        </span>
+                      )}
+                      <button
+                        onClick={() => handleDeleteHoliday(h)}
+                        className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                        aria-label={`Delete ${h.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
+              <Button variant="outline" onClick={() => setShowHolidaysModal(false)}>
+                Done
               </Button>
             </div>
           </div>
