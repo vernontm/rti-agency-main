@@ -625,11 +625,14 @@ const VideoManagementPage = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Video *
                 </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Paste a YouTube/Vimeo URL (e.g. <code>youtu.be/abc123</code>) or upload an MP4 file.
+                </p>
                 <div className="flex gap-2">
                   <Input
                     value={formData.video_url}
                     onChange={(e) => setFormData({ ...formData, video_url: e.target.value })}
-                    placeholder="Enter URL or upload file"
+                    placeholder="https://youtu.be/... or click Upload"
                     className="flex-1"
                   />
                   <input

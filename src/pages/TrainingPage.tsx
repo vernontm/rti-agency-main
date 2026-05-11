@@ -31,6 +31,27 @@ interface CourseModule {
   isExpanded: boolean
 }
 
+// Extract the YouTube video ID from any URL format. Returns null if not a YouTube URL.
+const getYouTubeId = (url: string | null | undefined): string | null => {
+  if (!url) return null
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/v\/)([\w-]{11})/,
+    /youtube\.com\/.*[?&]v=([\w-]{11})/,
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m && m[1]) return m[1]
+  }
+  return null
+}
+
+// Extract Vimeo ID
+const getVimeoId = (url: string | null | undefined): string | null => {
+  if (!url) return null
+  const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
+  return m ? m[1] : null
+}
+
 const TrainingPage = () => {
   const { profile } = useAuthStore()
   const [videos, setVideos] = useState<VideoWithProgress[]>([])
@@ -456,15 +477,71 @@ const TrainingPage = () => {
               />
             ) : (
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                {!selectedVideo.video_url ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
-                    <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
-                    <h3 className="text-lg font-semibold mb-2">No video file</h3>
-                    <p className="text-sm text-gray-300 max-w-md">
-                      This video doesn't have a file attached. An admin needs to upload one in the Video Manager.
-                    </p>
-                  </div>
-                ) : videoError ? (
+                {(() => {
+                  const ytId = getYouTubeId(selectedVideo.video_url)
+                  const vimeoId = getVimeoId(selectedVideo.video_url)
+                  const isEmbed = !!(ytId || vimeoId)
+
+                  if (!selectedVideo.video_url) {
+                    return (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
+                        <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
+                        <h3 className="text-lg font-semibold mb-2">No video file</h3>
+                        <p className="text-sm text-gray-300 max-w-md">
+                          This video doesn't have a file attached. An admin needs to upload one or paste a YouTube URL in the Video Manager.
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  // YouTube embed
+                  if (ytId) {
+                    return (
+                      <>
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
+                          className="w-full h-full"
+                          title={selectedVideo.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                        <button
+                          onClick={handleVideoEnd}
+                          className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
+                        >
+                          ✓ Mark as Watched
+                        </button>
+                      </>
+                    )
+                  }
+
+                  // Vimeo embed
+                  if (vimeoId) {
+                    return (
+                      <>
+                        <iframe
+                          src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+                          className="w-full h-full"
+                          title={selectedVideo.title}
+                          allow="autoplay; fullscreen; picture-in-picture"
+                          allowFullScreen
+                        />
+                        <button
+                          onClick={handleVideoEnd}
+                          className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
+                        >
+                          ✓ Mark as Watched
+                        </button>
+                      </>
+                    )
+                  }
+
+                  // Direct video file fallthrough — handled by the legacy branches below
+                  return null
+                })()}
+
+                {/* Direct file player branches (only render when NOT a YouTube/Vimeo URL) */}
+                {selectedVideo.video_url && !getYouTubeId(selectedVideo.video_url) && !getVimeoId(selectedVideo.video_url) && (videoError ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
                     <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
                     <h3 className="text-lg font-semibold mb-2">Couldn't load video</h3>
@@ -533,7 +610,7 @@ const TrainingPage = () => {
                       </div>
                     )}
                   </>
-                )}
+                ))}
 
                 {showEngagementCheck && (
                   <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
