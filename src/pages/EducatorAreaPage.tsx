@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import { FileText, ExternalLink, X, Clock, CheckCircle, XCircle, Trash2 } from 'lucide-react'
+import { FileText, ExternalLink, X, Clock, CheckCircle, XCircle, Trash2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormViewer from '../components/pdf/PDFFormViewer'
 import AcroFormViewer from '../components/pdf/AcroFormViewer'
@@ -23,6 +23,7 @@ interface Form {
     pdfRotation?: number
     acroForm?: boolean
   }
+  is_view_only?: boolean
 }
 
 interface FormSubmissionWithForm {
@@ -56,7 +57,7 @@ const EducatorAreaPage = () => {
       // Fetch forms marked for educator area
       const { data: formsData, error: formsError } = await supabase
         .from('forms')
-        .select('id, form_name, form_type, fields_schema')
+        .select('id, form_name, form_type, fields_schema, is_view_only')
         .eq('show_in_educator_area', true)
         .order('form_name')
 
@@ -340,39 +341,71 @@ const EducatorAreaPage = () => {
                 const schema = form.fields_schema
                 const pdfUrl = schema.pdf_url || schema.pdfUrl
                 const isPdfForm = schema?.type === 'pdf'
+                const isViewOnly = !!form.is_view_only
 
                 return (
                   <Card key={form.id} className="hover:shadow-md transition-shadow">
                     <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-6 h-6 text-orange-600" />
+                      <div className={`w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 ${isViewOnly ? 'bg-purple-100' : 'bg-orange-100'}`}>
+                        <FileText className={`w-6 h-6 ${isViewOnly ? 'text-purple-600' : 'text-orange-600'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-gray-900 truncate">{form.form_name}</h3>
-                        <p className="text-sm text-gray-500 mt-1">
-                          {isPdfForm ? 'PDF Form' : 'Digital Form'}
-                        </p>
-                        <div className="mt-3 flex gap-2">
-                          {isPdfForm && pdfUrl && (schema.fields || schema.acroForm) ? (
-                            <Button
-                              size="sm"
-                              onClick={() => setSelectedForm(form)}
-                            >
-                              Fill Out
-                            </Button>
-                          ) : (
-                            <span className="text-sm text-gray-400">Form not available</span>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900 truncate">{form.form_name}</h3>
+                          {isViewOnly && (
+                            <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">
+                              View Only
+                            </span>
                           )}
-                          {pdfUrl && (
-                            <a
-                              href={pdfUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              View
-                            </a>
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {isViewOnly ? 'Download or print only' : isPdfForm ? 'Fillable PDF Form' : 'Digital Form'}
+                        </p>
+                        <div className="mt-3 flex gap-2 flex-wrap">
+                          {isViewOnly && pdfUrl ? (
+                            <>
+                              <a
+                                href={pdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-1.5 font-medium"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Open / Print
+                              </a>
+                              <a
+                                href={pdfUrl}
+                                download
+                                className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1.5"
+                              >
+                                <Download className="w-3 h-3" />
+                                Download
+                              </a>
+                            </>
+                          ) : (
+                            <>
+                              {isPdfForm && pdfUrl && (schema.fields || schema.acroForm) ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setSelectedForm(form)}
+                                >
+                                  Fill Out
+                                </Button>
+                              ) : (
+                                <span className="text-sm text-gray-400">Form not available</span>
+                              )}
+                              {pdfUrl && (
+                                <a
+                                  href={pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  View
+                                </a>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

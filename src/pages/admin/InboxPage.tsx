@@ -20,6 +20,7 @@ import {
   ShieldAlert,
   RefreshCw,
   ArrowLeft,
+  Trash2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -249,6 +250,29 @@ const InboxPage = () => {
     } catch { toast.error('Failed to reject form') }
   }
 
+  // Delete an item from the inbox (permanently removes the underlying record)
+  const handleDeleteItem = async (item: InboxItem) => {
+    const label = item.type === 'approval' ? 'pending user' : item.type
+    if (!confirm(`Permanently delete this ${label}? This cannot be undone.`)) return
+    try {
+      const tableMap: Record<typeof item.type, string> = {
+        approval: 'users',
+        application: 'job_applications',
+        form: 'form_submissions',
+        contact: 'contact_submissions',
+      }
+      const tableName = tableMap[item.type]
+      const { error } = await supabase.from(tableName).delete().eq('id', item.id)
+      if (error) throw error
+      toast.success('Deleted')
+      setSelectedItem(null)
+      fetchAllItems()
+    } catch (error: any) {
+      console.error('Error deleting:', error)
+      toast.error(`Failed to delete: ${error?.message || 'unknown error'}`)
+    }
+  }
+
   // --- Filtering ---
   const filteredItems = items.filter(item => {
     if (category === 'spam') {
@@ -445,6 +469,15 @@ const InboxPage = () => {
                 <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
               </>
             )}
+            {/* Delete is always available */}
+            <Button
+              variant="outline"
+              onClick={() => handleDeleteItem(selectedItem)}
+              className="ml-auto text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
           </div>
       </div>
     )

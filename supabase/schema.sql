@@ -27,6 +27,7 @@ CREATE TABLE forms (
     form_type TEXT NOT NULL UNIQUE,
     fields_schema JSONB NOT NULL DEFAULT '{}',
     show_in_educator_area BOOLEAN NOT NULL DEFAULT false,
+    is_view_only BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

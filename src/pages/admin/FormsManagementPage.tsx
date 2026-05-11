@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button'
 import {
   FileText, Plus, Search, Eye, EyeOff, Trash2, X, Star,
   ClipboardList, CheckCircle, XCircle, Clock, ArrowLeft,
-  Download, FolderOpen, Send, Filter,
+  Download, FolderOpen, Send, Filter, Printer,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormBuilder from '../../components/pdf/PDFFormBuilder'
@@ -28,6 +28,7 @@ interface Form {
     acroForm?: boolean
   }
   show_in_educator_area: boolean
+  is_view_only?: boolean
   created_at: string
 }
 
@@ -158,6 +159,34 @@ const FormsManagementPage = () => {
     } catch (error) {
       console.error('Error toggling visibility:', error)
       toast.error('Failed to update visibility')
+    }
+  }
+
+  const toggleViewOnly = async (form: Form) => {
+    try {
+      const newValue = !form.is_view_only
+      const { error } = await supabase
+        .from('forms')
+        .update({ is_view_only: newValue })
+        .eq('id', form.id)
+
+      if (error) throw error
+
+      setForms(prev =>
+        prev.map(f => f.id === form.id ? { ...f, is_view_only: newValue } : f)
+      )
+      if (selectedForm?.id === form.id) {
+        setSelectedForm({ ...form, is_view_only: newValue })
+      }
+      toast.success(newValue ? 'Form marked as View Only (download/print only)' : 'Form is now fillable')
+    } catch (error: any) {
+      console.error('Error toggling view-only:', error)
+      const msg = error?.message || ''
+      if (/column.*is_view_only/i.test(msg)) {
+        toast.error('Add the is_view_only column to forms table first (see SQL).')
+      } else {
+        toast.error(`Failed: ${msg || 'unknown error'}`)
+      }
     }
   }
 
@@ -472,7 +501,7 @@ const FormsManagementPage = () => {
             <div>
               <h2 className="font-semibold text-gray-900">{selectedForm.form_name}</h2>
               <p className="text-sm text-gray-500">
-                {selectedForm.fields_schema.acroForm ? 'AcroForm PDF' : 'PDF Form'}
+                {selectedForm.is_view_only ? 'View Only (Print/Download)' : selectedForm.fields_schema.acroForm ? 'Fillable AcroForm PDF' : 'Fillable PDF Form'}
                 {' · '}
                 {selectedForm.fields_schema.fields?.length || 0} fields
                 {' · '}
@@ -481,6 +510,20 @@ const FormsManagementPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggleViewOnly(selectedForm)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                selectedForm.is_view_only
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+              title={selectedForm.is_view_only
+                ? 'Click to make this form fillable'
+                : 'Click to make this form View Only (download/print without filling)'}
+            >
+              <Printer className="w-4 h-4" />
+              {selectedForm.is_view_only ? 'View Only' : 'Fillable'}
+            </button>
             <button
               onClick={() => toggleVisibility(selectedForm)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -692,6 +735,13 @@ const FormsManagementPage = () => {
                         {form.fields_schema.fields?.length || 0} fields
                       </span>
                     </div>
+
+                    {/* View-only badge */}
+                    {form.is_view_only && (
+                      <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded flex-shrink-0 bg-purple-100 text-purple-700">
+                        View Only
+                      </span>
+                    )}
 
                     {/* Visibility */}
                     <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded flex-shrink-0 ${form.show_in_educator_area ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
