@@ -63,6 +63,8 @@ const InboxPage = () => {
   const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null)
   const [category, setCategory] = useState<InboxCategory>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkDeleting, setBulkDeleting] = useState(false)
 
   useEffect(() => {
     fetchAllItems()
@@ -250,27 +252,91 @@ const InboxPage = () => {
     } catch { toast.error('Failed to reject form') }
   }
 
+  const tableForType: Record<InboxItem['type'], string> = {
+    approval: 'users',
+    application: 'job_applications',
+    form: 'form_submissions',
+    contact: 'contact_submissions',
+  }
+
   // Delete an item from the inbox (permanently removes the underlying record)
   const handleDeleteItem = async (item: InboxItem) => {
     const label = item.type === 'approval' ? 'pending user' : item.type
     if (!confirm(`Permanently delete this ${label}? This cannot be undone.`)) return
     try {
-      const tableMap: Record<typeof item.type, string> = {
-        approval: 'users',
-        application: 'job_applications',
-        form: 'form_submissions',
-        contact: 'contact_submissions',
-      }
-      const tableName = tableMap[item.type]
-      const { error } = await supabase.from(tableName).delete().eq('id', item.id)
+      const { error } = await supabase.from(tableForType[item.type]).delete().eq('id', item.id)
       if (error) throw error
       toast.success('Deleted')
       setSelectedItem(null)
-      fetchAllItems()
+      // Optimistically remove from local state
+      setItems(prev => prev.filter(i => !(i.type === item.type && i.id === item.id)))
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        next.delete(`${item.type}-${item.id}`)
+        return next
+      })
     } catch (error: any) {
       console.error('Error deleting:', error)
       toast.error(`Failed to delete: ${error?.message || 'unknown error'}`)
     }
+  }
+
+  // Bulk delete all selected items
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Permanently delete ${selectedIds.size} item(s)? This cannot be undone.`)) return
+
+    setBulkDeleting(true)
+    try {
+      // Group selected items by table for batch delete
+      const groupedByTable: Record<string, string[]> = {}
+      const itemsToDelete = items.filter(item => selectedIds.has(`${item.type}-${item.id}`))
+
+      itemsToDelete.forEach(item => {
+        const tbl = tableForType[item.type]
+        if (!groupedByTable[tbl]) groupedByTable[tbl] = []
+        groupedByTable[tbl].push(item.id)
+      })
+
+      for (const [tbl, ids] of Object.entries(groupedByTable)) {
+        const { error } = await supabase.from(tbl).delete().in('id', ids)
+        if (error) throw error
+      }
+
+      // Optimistically remove from local state
+      setItems(prev => prev.filter(i => !selectedIds.has(`${i.type}-${i.id}`)))
+      toast.success(`Deleted ${itemsToDelete.length} item(s)`)
+      setSelectedIds(new Set())
+    } catch (error: any) {
+      console.error('Error bulk deleting:', error)
+      toast.error(`Failed to delete some items: ${error?.message || 'unknown error'}`)
+    } finally {
+      setBulkDeleting(false)
+    }
+  }
+
+  const toggleRowSelect = (item: InboxItem) => {
+    const key = `${item.type}-${item.id}`
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const toggleSelectAll = (visibleItems: InboxItem[]) => {
+    const keys = visibleItems.map(i => `${i.type}-${i.id}`)
+    const allSelected = keys.every(k => selectedIds.has(k))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) {
+        keys.forEach(k => next.delete(k))
+      } else {
+        keys.forEach(k => next.add(k))
+      }
+      return next
+    })
   }
 
   // --- Filtering ---
@@ -573,6 +639,49 @@ const InboxPage = () => {
 
         {/* Message rows */}
         <div className="flex-1 flex flex-col min-h-0">
+          {/* Select-all toolbar */}
+          {filteredItems.length > 0 && (
+            <div className="flex items-center gap-3 px-5 py-2.5 border-b bg-gray-50/50">
+              <input
+                type="checkbox"
+                checked={filteredItems.length > 0 && filteredItems.every(i => selectedIds.has(`${i.type}-${i.id}`))}
+                ref={(el) => {
+                  if (el) {
+                    const someSelected = filteredItems.some(i => selectedIds.has(`${i.type}-${i.id}`))
+                    const allSelected = filteredItems.every(i => selectedIds.has(`${i.type}-${i.id}`))
+                    el.indeterminate = someSelected && !allSelected
+                  }
+                }}
+                onChange={() => toggleSelectAll(filteredItems)}
+                aria-label="Select all messages"
+                className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-2 focus:ring-orange-500 cursor-pointer"
+              />
+              {selectedIds.size > 0 ? (
+                <>
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedIds.size} selected
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting}
+                    className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {bulkDeleting ? 'Deleting…' : 'Delete'}
+                  </button>
+                  <button
+                    onClick={() => setSelectedIds(new Set())}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Clear
+                  </button>
+                </>
+              ) : (
+                <span className="text-xs text-gray-400">Select all</span>
+              )}
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto">
             {filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-gray-400">
@@ -580,42 +689,69 @@ const InboxPage = () => {
                 <p className="text-sm">No messages</p>
               </div>
             ) : (
-              filteredItems.map((item) => (
-                <button
-                  key={`${item.type}-${item.id}`}
-                  onClick={() => setSelectedItem(item)}
-                  className={`w-full flex items-center gap-4 px-5 py-3 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors ${
-                    !item.isRead ? 'bg-white' : 'bg-gray-50/30'
-                  }`}
-                >
-                  {/* Avatar */}
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${getAvatarColor(item.title)}`}>
-                    {getInitials(item.title)}
-                  </div>
+              filteredItems.map((item) => {
+                const rowKey = `${item.type}-${item.id}`
+                const isSelected = selectedIds.has(rowKey)
+                return (
+                  <div
+                    key={rowKey}
+                    onClick={() => setSelectedItem(item)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') setSelectedItem(item) }}
+                    className={`group w-full flex items-center gap-3 px-5 py-3 border-b border-gray-100 text-left hover:bg-gray-50 transition-colors cursor-pointer ${
+                      isSelected ? 'bg-orange-50/50' : !item.isRead ? 'bg-white' : 'bg-gray-50/30'
+                    }`}
+                  >
+                    {/* Checkbox */}
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleRowSelect(item)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Select message from ${item.title}`}
+                      className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-2 focus:ring-orange-500 cursor-pointer flex-shrink-0"
+                    />
 
-                  {/* Sender name — fixed width column */}
-                  <span className={`w-40 flex-shrink-0 text-sm truncate ${!item.isRead ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>
-                    {item.title}
-                  </span>
+                    {/* Avatar */}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${getAvatarColor(item.title)}`}>
+                      {getInitials(item.title)}
+                    </div>
 
-                  {/* Subject + preview — single line */}
-                  <div className="flex-1 min-w-0 text-sm truncate">
-                    <span className={!item.isRead ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}>
-                      {item.subtitle}
+                    {/* Sender name — fixed width column */}
+                    <span className={`w-40 flex-shrink-0 text-sm truncate ${!item.isRead ? 'font-bold text-gray-900' : 'font-medium text-gray-600'}`}>
+                      {item.title}
                     </span>
-                    <span className="text-gray-400 mx-1.5">&mdash;</span>
-                    <span className="text-gray-400 font-normal">{item.preview}</span>
+
+                    {/* Subject + preview — single line */}
+                    <div className="flex-1 min-w-0 text-sm truncate">
+                      <span className={!item.isRead ? 'font-semibold text-gray-900' : 'font-normal text-gray-700'}>
+                        {item.subtitle}
+                      </span>
+                      <span className="text-gray-400 mx-1.5">&mdash;</span>
+                      <span className="text-gray-400 font-normal">{item.preview}</span>
+                    </div>
+
+                    {/* Star */}
+                    <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400 flex-shrink-0 transition-colors" />
+
+                    {/* Trash (per-row, click reveals on hover, always clickable) */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteItem(item) }}
+                      className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors flex-shrink-0 opacity-0 group-hover:opacity-100"
+                      aria-label={`Delete message from ${item.title}`}
+                      title="Delete"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+
+                    {/* Time */}
+                    <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap w-16 text-right">
+                      {formatDate(item.createdAt)}
+                    </span>
                   </div>
-
-                  {/* Star */}
-                  <Star className="w-4 h-4 text-gray-300 hover:text-yellow-400 flex-shrink-0 transition-colors" />
-
-                  {/* Time */}
-                  <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap w-16 text-right">
-                    {formatDate(item.createdAt)}
-                  </span>
-                </button>
-              ))
+                )
+              })
             )}
           </div>
         </div>
