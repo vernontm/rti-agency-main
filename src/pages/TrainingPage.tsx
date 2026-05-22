@@ -152,6 +152,7 @@ const TrainingPage = () => {
           *,
           video_progress (*)
         `)
+        .eq('is_published', true)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false })
 

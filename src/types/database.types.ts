@@ -114,6 +114,7 @@ export interface Database {
           thumbnail_url: string | null
           category: string | null
           is_required: boolean
+          is_published: boolean
           uploaded_by: string | null
           sort_order: number
           created_at: string
@@ -127,6 +128,7 @@ export interface Database {
           thumbnail_url?: string | null
           category?: string | null
           is_required?: boolean
+          is_published?: boolean
           uploaded_by?: string | null
           sort_order?: number
           created_at?: string
@@ -140,6 +142,7 @@ export interface Database {
           thumbnail_url?: string | null
           category?: string | null
           is_required?: boolean
+          is_published?: boolean
           uploaded_by?: string | null
           sort_order?: number
           created_at?: string

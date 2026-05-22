@@ -5,7 +5,7 @@ import type { Tables } from '../../types/database.types'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { Plus, Trash2, Edit2, Video, X, Save, Upload, Loader2, Play, HelpCircle, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Edit2, Video, X, Save, Upload, Loader2, Play, HelpCircle, ArrowUp, ArrowDown, GripVertical, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import QuizEditor from '../../components/admin/QuizEditor'
 
@@ -36,6 +36,7 @@ const VideoManagementPage = () => {
     thumbnail_url: '',
     category: '',
     is_required: false,
+    is_published: true,
   })
   const [playingVideo, setPlayingVideo] = useState<Tables<'videos'> | null>(null)
   const [editingQuizVideo, setEditingQuizVideo] = useState<Tables<'videos'> | null>(null)
@@ -89,6 +90,7 @@ const VideoManagementPage = () => {
       thumbnail_url: '',
       category: '',
       is_required: false,
+      is_published: true,
     })
     setShowModal(true)
   }
@@ -103,6 +105,7 @@ const VideoManagementPage = () => {
       thumbnail_url: video.thumbnail_url || '',
       category: video.category || '',
       is_required: video.is_required,
+      is_published: video.is_published ?? true,
     })
     setShowModal(true)
   }
@@ -139,6 +142,22 @@ const VideoManagementPage = () => {
       toast.error('Failed to save video')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const togglePublished = async (video: Tables<'videos'>) => {
+    const next = !(video.is_published ?? true)
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .update({ is_published: next })
+        .eq('id', video.id)
+      if (error) throw error
+      toast.success(next ? 'Video published — staff can see it' : 'Video hidden from staff')
+      fetchVideos()
+    } catch (error) {
+      console.error('Error updating video visibility:', error)
+      toast.error('Failed to update visibility')
     }
   }
 
@@ -541,6 +560,11 @@ const VideoManagementPage = () => {
                   Required
                 </span>
               )}
+              {!(video.is_published ?? true) && (
+                <span className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                  <EyeOff className="w-3 h-3" /> Hidden
+                </span>
+              )}
             </div>
             <div className="p-4">
               <h3 className="font-semibold text-gray-900 mb-1">{video.title}</h3>
@@ -560,6 +584,18 @@ const VideoManagementPage = () => {
                 <Button size="sm" variant="outline" onClick={() => setEditingQuizVideo(video)}>
                   <HelpCircle className="w-4 h-4 mr-1" />
                   Quiz
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => togglePublished(video)}
+                  title={(video.is_published ?? true) ? 'Hide from staff' : 'Publish to staff'}
+                >
+                  {(video.is_published ?? true) ? (
+                    <><Eye className="w-4 h-4 mr-1" />Hide</>
+                  ) : (
+                    <><EyeOff className="w-4 h-4 mr-1" />Publish</>
+                  )}
                 </Button>
                 <Button
                   size="sm"
@@ -700,12 +736,15 @@ const VideoManagementPage = () => {
                   </Button>
                 </div>
                 {formData.thumbnail_url && (
-                  <img
-                    src={formData.thumbnail_url}
-                    alt="Thumbnail preview"
-                    className="mt-2 h-20 rounded object-cover"
-                  />
+                  <div className="mt-2 w-64 aspect-video rounded overflow-hidden bg-gray-100 border border-gray-200">
+                    <img
+                      src={formData.thumbnail_url}
+                      alt="Thumbnail preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 )}
+                <p className="text-xs text-gray-500 mt-1">Thumbnails display at 16:9 — recommended 1280×720.</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -745,6 +784,19 @@ const VideoManagementPage = () => {
                   className="rounded border-gray-300"
                 />
                 <span className="text-sm text-gray-700">Required training</span>
+              </label>
+
+              <label className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.is_published}
+                  onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
+                  className="mt-0.5 rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700">
+                  Published — visible to staff
+                  <span className="block text-xs text-gray-500">Uncheck to hide while you're still uploading.</span>
+                </span>
               </label>
 
               <div className="flex gap-3 pt-4">

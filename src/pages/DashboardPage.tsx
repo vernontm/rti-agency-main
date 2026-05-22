@@ -147,7 +147,7 @@ const DashboardPage = () => {
           { data: recentAnnouncements },
           { data: readAnnouncements },
         ] = await Promise.all([
-          supabase.from('videos').select('id'),
+          supabase.from('videos').select('id').eq('is_published', true),
           supabase
             .from('video_progress')
             .select('video_id, completed')
