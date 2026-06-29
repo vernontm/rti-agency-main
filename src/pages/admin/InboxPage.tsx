@@ -93,7 +93,7 @@ const InboxPage = () => {
         supabase
           .from('form_submissions')
           .select(`*, forms (form_name), users:submitted_by (full_name, email)`)
-          .eq('status', 'pending')
+          .in('status', ['pending', 'received'])
           .order('submitted_at', { ascending: false }),
         supabase
           .from('contact_submissions')
@@ -179,6 +179,7 @@ const InboxPage = () => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800',
       new: 'bg-blue-100 text-blue-800',
+      received: 'bg-blue-100 text-blue-800',
       approved: 'bg-green-100 text-green-800',
       rejected: 'bg-red-100 text-red-800',
       reviewed: 'bg-gray-100 text-gray-800',
@@ -230,6 +231,16 @@ const InboxPage = () => {
       fetchAllItems()
       if (status === 'archived' || status === 'spam') setSelectedItem(null)
     } catch { toast.error('Failed to update contact') }
+  }
+
+  const handleMarkFormReceived = async (submissionId: string) => {
+    try {
+      const { error } = await supabase.from('form_submissions').update({ status: 'received', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() }).eq('id', submissionId)
+      if (error) throw error
+      toast.success('Marked as received')
+      fetchAllItems()
+      setSelectedItem(null)
+    } catch { toast.error('Failed to mark as received') }
   }
 
   const handleApproveForm = async (submissionId: string) => {
@@ -530,6 +541,12 @@ const InboxPage = () => {
               </>
             )}
             {selectedItem.type === 'form' && selectedItem.status === 'pending' && (
+              <>
+                <Button onClick={() => handleMarkFormReceived(selectedItem.id)}><MailOpen className="w-4 h-4 mr-2" />Received</Button>
+                <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
+              </>
+            )}
+            {selectedItem.type === 'form' && selectedItem.status === 'received' && (
               <>
                 <Button onClick={() => handleApproveForm(selectedItem.id)}><CheckCircle className="w-4 h-4 mr-2" />Approve</Button>
                 <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>

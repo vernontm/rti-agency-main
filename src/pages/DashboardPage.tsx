@@ -119,13 +119,13 @@ const DashboardPage = () => {
         { data: pendingUsersList },
         { data: pendingFormsList },
       ] = await Promise.all([
-        supabase.from('form_submissions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('form_submissions').select('*', { count: 'exact', head: true }).in('status', ['pending', 'received']),
         supabase.from('users').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('users').select('*', { count: 'exact', head: true }),
         supabase.from('videos').select('*', { count: 'exact', head: true }),
         supabase.from('announcements').select('*', { count: 'exact', head: true }),
         supabase.from('users').select('id, full_name, email, created_at').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
-        supabase.from('form_submissions').select('id, form_id, user_id, created_at, forms(title), users(full_name)').eq('status', 'pending').order('created_at', { ascending: false }).limit(5),
+        supabase.from('form_submissions').select('id, form_id, user_id, created_at, forms(title), users(full_name)').in('status', ['pending', 'received']).order('created_at', { ascending: false }).limit(5),
       ])
 
       // Employee-specific stats
@@ -186,7 +186,7 @@ const DashboardPage = () => {
         const { count: appCount } = await supabase
           .from('form_submissions')
           .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending')
+          .in('status', ['pending', 'received'])
         pendingApplications = appCount || 0
 
         // Get recent video completions

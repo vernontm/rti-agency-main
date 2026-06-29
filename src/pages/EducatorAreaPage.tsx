@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
-import { FileText, ExternalLink, X, Clock, CheckCircle, XCircle, Trash2, Download } from 'lucide-react'
+import { FileText, ExternalLink, X, Clock, CheckCircle, XCircle, Trash2, Download, Inbox } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormViewer from '../components/pdf/PDFFormViewer'
 import AcroFormViewer from '../components/pdf/AcroFormViewer'
@@ -220,6 +220,7 @@ const EducatorAreaPage = () => {
   const getStatusBadge = (status: FormStatus) => {
     const badges = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+      received: { color: 'bg-blue-100 text-blue-800', icon: Inbox },
       approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
       rejected: { color: 'bg-red-100 text-red-800', icon: XCircle },
     }

@@ -47,7 +47,7 @@ interface FormSubmission {
 }
 
 type SidebarView = 'forms' | 'submissions'
-type SubmissionFilter = 'all' | 'pending' | 'approved' | 'rejected'
+type SubmissionFilter = 'all' | 'pending' | 'received' | 'approved' | 'rejected'
 
 const AVATAR_COLORS = [
   'bg-violet-500', 'bg-orange-500', 'bg-emerald-500', 'bg-teal-500',
@@ -327,6 +327,7 @@ const FormsManagementPage = () => {
   const getStatusBadge = (status: FormStatus) => {
     const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
+      received: 'bg-blue-100 text-blue-700',
       approved: 'bg-green-100 text-green-700',
       rejected: 'bg-red-100 text-red-700',
     }
@@ -454,7 +455,7 @@ const FormsManagementPage = () => {
         </div>
 
         {/* Actions */}
-        {selectedSubmission.status === 'pending' && (
+        {(selectedSubmission.status === 'pending' || selectedSubmission.status === 'received') && (
           <div className="px-6 py-4 border-t bg-gray-50 flex gap-3">
             <Button
               onClick={() => setShowManagerSign(true)}
@@ -468,6 +469,14 @@ const FormsManagementPage = () => {
             >
               Approve Without Signing
             </Button>
+            {selectedSubmission.status === 'pending' && (
+              <Button
+                variant="outline"
+                onClick={() => handleStatusUpdate(selectedSubmission.id, 'received')}
+              >
+                Mark Received
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => {
@@ -590,6 +599,7 @@ const FormsManagementPage = () => {
     hidden: forms.filter(f => !f.show_in_educator_area).length,
     submissions: submissions.length,
     pending: submissions.filter(s => s.status === 'pending').length,
+    received: submissions.filter(s => s.status === 'received').length,
     approved: submissions.filter(s => s.status === 'approved').length,
     rejected: submissions.filter(s => s.status === 'rejected').length,
   }
@@ -602,6 +612,7 @@ const FormsManagementPage = () => {
   const submissionFilters = [
     { key: 'all' as SubmissionFilter, label: 'All', count: counts.submissions },
     { key: 'pending' as SubmissionFilter, label: 'Pending', count: counts.pending },
+    { key: 'received' as SubmissionFilter, label: 'Received', count: counts.received },
     { key: 'approved' as SubmissionFilter, label: 'Approved', count: counts.approved },
     { key: 'rejected' as SubmissionFilter, label: 'Rejected', count: counts.rejected },
   ]

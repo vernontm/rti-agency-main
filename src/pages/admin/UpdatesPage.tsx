@@ -90,6 +90,8 @@ const UpdatesPage = () => {
           if (submission.status === 'approved') {
             activityType = 'form_approved'
             title = 'Form Approved'
+          } else if (submission.status === 'received') {
+            title = 'Form Received'
           } else if (submission.status === 'rejected') {
             activityType = 'form_rejected'
             title = 'Form Rejected'
@@ -200,7 +202,7 @@ const UpdatesPage = () => {
   const handleDismiss = async (activity: ActivityItem) => {
     // Check if this requires approval
     const requiresApproval = 
-      (activity.type === 'form_submission' && activity.status === 'pending') ||
+      (activity.type === 'form_submission' && (activity.status === 'pending' || activity.status === 'received')) ||
       (activity.type === 'inquiry' && activity.status === 'new')
 
     if (requiresApproval) {
@@ -389,7 +391,7 @@ const UpdatesPage = () => {
             filteredActivities.map((activity, index) => {
               const isDismissed = isActivityDismissed(activity)
               const requiresApproval = 
-                (activity.type === 'form_submission' && activity.status === 'pending') ||
+                (activity.type === 'form_submission' && (activity.status === 'pending' || activity.status === 'received')) ||
                 (activity.type === 'inquiry' && activity.status === 'new')
 
               return (
@@ -429,6 +431,7 @@ const UpdatesPage = () => {
                       {activity.status && (
                         <span className={`px-2 py-0.5 text-xs rounded-full ${
                           activity.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          activity.status === 'received' ? 'bg-blue-100 text-blue-700' :
                           activity.status === 'approved' ? 'bg-green-100 text-green-700' :
                           activity.status === 'rejected' ? 'bg-red-100 text-red-700' :
                           activity.status === 'new' ? 'bg-blue-100 text-blue-700' :

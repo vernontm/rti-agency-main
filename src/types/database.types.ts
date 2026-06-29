@@ -1,6 +1,6 @@
 export type UserRole = 'admin' | 'employee' | 'client'
 export type UserStatus = 'pending' | 'approved' | 'rejected'
-export type FormStatus = 'pending' | 'approved' | 'rejected'
+export type FormStatus = 'pending' | 'received' | 'approved' | 'rejected'
 export type AnnouncementAudience = 'all' | 'admins' | 'employees' | 'clients' | 'specific'
 export type InquiryStatus = 'new' | 'in_progress' | 'closed'
 export type NotificationRecipients = 'admin' | 'employee' | 'both' | 'none'
