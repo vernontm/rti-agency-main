@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useAuthStore } from '../../stores/authStore'
 import { AlertTriangle, Trash2, RefreshCw, User, Clock, Monitor } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Button from '../../components/ui/Button'
+
+const ALLOWED_EMAIL = 'rvernonmedia@gmail.com'
 
 interface ErrorLog {
   id: string
@@ -17,6 +21,7 @@ interface ErrorLog {
 }
 
 const ErrorLogsPage = () => {
+  const { profile } = useAuthStore()
   const [logs, setLogs] = useState<ErrorLog[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -71,6 +76,10 @@ const ErrorLogsPage = () => {
   const formatTime = (iso: string) => {
     const d = new Date(iso)
     return d.toLocaleString()
+  }
+
+  if (profile && profile.email !== ALLOWED_EMAIL) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return (

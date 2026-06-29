@@ -193,7 +193,9 @@ const Sidebar = () => {
         { to: '/admin/job-positions', icon: Briefcase, label: 'Job Positions', tooltip: 'Manage job listings', roles: ['admin'] },
         { to: '/admin/file-manager', icon: FileText, label: 'File Manager', tooltip: 'Upload & manage files', roles: ['admin'] },
         { to: '/admin/archives', icon: Archive, label: 'Archives', tooltip: 'Archived records', roles: ['admin'] },
-        { to: '/admin/error-logs', icon: AlertTriangle, label: 'Error Logs', tooltip: 'Client-side crashes', roles: ['admin'] },
+        ...(profile?.email === 'rvernonmedia@gmail.com'
+          ? [{ to: '/admin/error-logs', icon: AlertTriangle, label: 'Error Logs', tooltip: 'Client-side crashes', roles: ['admin'] }]
+          : []),
       ]
     },
     {
