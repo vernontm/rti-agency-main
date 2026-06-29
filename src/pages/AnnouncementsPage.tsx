@@ -5,7 +5,7 @@ import type { Tables, AnnouncementAudience } from '../types/database.types'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
-import { Bell, Plus, X, Send, Users, Clock, Trash2 } from 'lucide-react'
+import { Bell, Plus, X, Send, Users, Clock, Trash2, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface AnnouncementWithReads extends Tables<'announcements'> {
@@ -17,6 +17,7 @@ const AnnouncementsPage = () => {
   const [announcements, setAnnouncements] = useState<AnnouncementWithReads[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -49,27 +50,57 @@ const AnnouncementsPage = () => {
     }
   }
 
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingId(null)
+    setFormData({ title: '', content: '', target_audience: 'all' })
+  }
+
+  const openEdit = (announcement: AnnouncementWithReads) => {
+    setEditingId(announcement.id)
+    setFormData({
+      title: announcement.title,
+      content: announcement.content,
+      target_audience: announcement.target_audience,
+    })
+    setShowModal(true)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profile) return
 
     try {
-      const { error } = await supabase.from('announcements').insert({
-        title: formData.title,
-        content: formData.content,
-        target_audience: formData.target_audience,
-        created_by: profile.id,
-        sent_at: new Date().toISOString(),
-      })
+      if (editingId) {
+        const { error } = await supabase
+          .from('announcements')
+          .update({
+            title: formData.title,
+            content: formData.content,
+            target_audience: formData.target_audience,
+          })
+          .eq('id', editingId)
 
-      if (error) throw error
-      toast.success('Announcement created!')
-      setShowModal(false)
-      setFormData({ title: '', content: '', target_audience: 'all' })
+        if (error) throw error
+        toast.success('Announcement updated')
+      } else {
+        const { error } = await supabase.from('announcements').insert({
+          title: formData.title,
+          content: formData.content,
+          target_audience: formData.target_audience,
+          created_by: profile.id,
+          sent_at: new Date().toISOString(),
+        })
+
+        if (error) throw error
+        toast.success('Announcement created!')
+      }
+
+      closeModal()
       fetchAnnouncements()
     } catch (error) {
-      console.error('Error creating announcement:', error)
-      toast.error('Failed to create announcement')
+      console.error('Error saving announcement:', error)
+      toast.error(editingId ? 'Failed to update announcement' : 'Failed to create announcement')
     }
   }
 
@@ -209,17 +240,30 @@ const AnnouncementsPage = () => {
                   </div>
                 </div>
                 {isAdmin && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDelete(announcement.id, announcement.title)
-                    }}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    aria-label={`Delete announcement: ${announcement.title}`}
-                    title="Delete announcement"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openEdit(announcement)
+                      }}
+                      className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                      aria-label={`Edit announcement: ${announcement.title}`}
+                      title="Edit announcement"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(announcement.id, announcement.title)
+                      }}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      aria-label={`Delete announcement: ${announcement.title}`}
+                      title="Delete announcement"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 )}
               </div>
             </Card>
@@ -235,12 +279,14 @@ const AnnouncementsPage = () => {
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && setShowModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onKeyDown={(e) => e.key === 'Escape' && closeModal()}>
           <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="announcement-modal-title">
             <div className="flex items-center justify-between mb-6">
-              <h2 id="announcement-modal-title" className="text-xl font-bold text-gray-900">New Announcement</h2>
+              <h2 id="announcement-modal-title" className="text-xl font-bold text-gray-900">
+                {editingId ? 'Edit Announcement' : 'New Announcement'}
+              </h2>
               <button
-                onClick={() => setShowModal(false)}
+                onClick={closeModal}
                 className="p-2 hover:bg-gray-100 rounded-lg"
                 aria-label="Close dialog"
               >
@@ -292,13 +338,13 @@ const AnnouncementsPage = () => {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeModal}
                 >
                   Cancel
                 </Button>
                 <Button type="submit" className="flex-1">
                   <Send className="w-4 h-4 mr-1" />
-                  Publish
+                  {editingId ? 'Save Changes' : 'Publish'}
                 </Button>
               </div>
             </form>

@@ -78,6 +78,7 @@ const CalendarPage = () => {
   const [holidays, setHolidays] = useState<Holiday[]>([])
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [showNoteModal, setShowNoteModal] = useState(false)
+  const [editingNote, setEditingNote] = useState<CalendarNote | null>(null)
   const [noteTitle, setNoteTitle] = useState('')
   const [noteDescription, setNoteDescription] = useState('')
   const [noteColor, setNoteColor] = useState('blue')
@@ -221,51 +222,91 @@ const CalendarPage = () => {
     }
   }
 
-  const handleAddNote = async () => {
+  const closeNoteModal = () => {
+    setShowNoteModal(false)
+    setEditingNote(null)
+    setNoteTitle('')
+    setNoteDescription('')
+    setNoteColor('blue')
+  }
+
+  const openEditNote = (note: CalendarNote) => {
+    setEditingNote(note)
+    setSelectedDate(note.date)
+    setNoteTitle(note.title)
+    setNoteDescription(note.description || '')
+    setNoteColor(note.color || 'blue')
+    setShowNoteModal(true)
+  }
+
+  const handleSaveNote = async () => {
     if (!selectedDate || !noteTitle.trim()) {
       toast.error('Please enter a title')
       return
     }
 
+    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    })
+    const announcementTitle = `📅 Calendar Update: ${noteTitle.trim()}`
+    const announcementContent = noteDescription.trim()
+      ? `${noteDescription.trim()}\n\nDate: ${formattedDate}`
+      : `A new calendar note has been added for ${formattedDate}.`
+
     try {
-      const { error } = await supabase
-        .from('calendar_notes')
-        .insert({
-          date: selectedDate,
-          title: noteTitle.trim(),
-          description: noteDescription.trim(),
-          color: noteColor,
+      if (editingNote) {
+        const { error } = await supabase
+          .from('calendar_notes')
+          .update({
+            title: noteTitle.trim(),
+            description: noteDescription.trim(),
+            color: noteColor,
+          } as any)
+          .eq('id', editingNote.id)
+        if (error) throw error
+
+        await supabase
+          .from('announcements')
+          .update({
+            title: announcementTitle,
+            content: announcementContent,
+          } as any)
+          .eq('calendar_note_id', editingNote.id)
+
+        toast.success('Note updated')
+      } else {
+        const { data: newNote, error } = await supabase
+          .from('calendar_notes')
+          .insert({
+            date: selectedDate,
+            title: noteTitle.trim(),
+            description: noteDescription.trim(),
+            color: noteColor,
+            created_by: profile?.id,
+          } as any)
+          .select('id')
+          .single()
+        if (error) throw error
+
+        await supabase.from('announcements').insert({
+          title: announcementTitle,
+          content: announcementContent,
           created_by: profile?.id,
+          target_audience: 'all',
+          sent_at: new Date().toISOString(),
+          calendar_note_id: (newNote as { id: string } | null)?.id,
         } as any)
 
-      if (error) throw error
+        toast.success('Note added and notification sent')
+      }
 
-      // Create an announcement for the new calendar note
-      const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-      })
-      
-      await supabase.from('announcements').insert({
-        title: `📅 Calendar Update: ${noteTitle.trim()}`,
-        content: noteDescription.trim() 
-          ? `${noteDescription.trim()}\n\nDate: ${formattedDate}`
-          : `A new calendar note has been added for ${formattedDate}.`,
-        created_by: profile?.id,
-        target_audience: 'all',
-        sent_at: new Date().toISOString(),
-      } as any)
-
-      toast.success('Note added and notification sent')
-      setShowNoteModal(false)
-      setNoteTitle('')
-      setNoteDescription('')
-      setNoteColor('blue')
+      closeNoteModal()
       fetchNotes()
     } catch (error) {
-      console.error('Error adding note:', error)
-      toast.error('Failed to add note')
+      console.error('Error saving note:', error)
+      toast.error(editingNote ? 'Failed to update note' : 'Failed to add note')
     }
   }
 
@@ -508,8 +549,12 @@ const CalendarPage = () => {
                   {dayNotes.slice(0, 2).map((note) => (
                     <div
                       key={note.id}
-                      className={`px-2 py-1 text-xs font-medium rounded truncate ${getColorClasses(note.color)}`}
-                      onClick={(e) => e.stopPropagation()}
+                      className={`px-2 py-1 text-xs font-medium rounded truncate ${getColorClasses(note.color)} ${isAdmin ? 'cursor-pointer hover:brightness-95' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (isAdmin) openEditNote(note)
+                      }}
+                      title={isAdmin ? 'Click to edit' : note.title}
                     >
                       <div className="flex items-center justify-between">
                         <span className="truncate">{note.title}</span>
@@ -558,20 +603,20 @@ const CalendarPage = () => {
         )}
       </div>
 
-      {/* Add Note Modal */}
+      {/* Add/Edit Note Modal */}
       {showNoteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => e.key === 'Escape' && setShowNoteModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onKeyDown={(e) => e.key === 'Escape' && closeNoteModal()}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 id="note-modal-title" className="text-lg font-semibold text-gray-900">
-                Add Note - {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+                {editingNote ? 'Edit Note' : 'Add Note'} - {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
                   weekday: 'long',
                   month: 'long',
                   day: 'numeric',
                 })}
               </h3>
               <button
-                onClick={() => setShowNoteModal(false)}
+                onClick={closeNoteModal}
                 className="p-2 hover:bg-gray-100 rounded-full"
                 aria-label="Close dialog"
               >
@@ -628,11 +673,11 @@ const CalendarPage = () => {
             </div>
 
             <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
-              <Button variant="outline" onClick={() => setShowNoteModal(false)}>
+              <Button variant="outline" onClick={closeNoteModal}>
                 Cancel
               </Button>
-              <Button onClick={handleAddNote}>
-                Add Note
+              <Button onClick={handleSaveNote}>
+                {editingNote ? 'Save Changes' : 'Add Note'}
               </Button>
             </div>
           </div>
