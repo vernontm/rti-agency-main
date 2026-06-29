@@ -6,7 +6,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create custom types
 CREATE TYPE user_role AS ENUM ('admin', 'employee', 'client');
-CREATE TYPE form_status AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE form_status AS ENUM ('pending', 'received', 'approved', 'rejected');
 CREATE TYPE announcement_audience AS ENUM ('all', 'employees', 'clients', 'specific');
 CREATE TYPE inquiry_status AS ENUM ('new', 'in_progress', 'closed');
 
@@ -119,6 +119,20 @@ CREATE TABLE announcements (
     scheduled_for TIMESTAMPTZ,
     sent_at TIMESTAMPTZ,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    calendar_note_id UUID REFERENCES calendar_notes(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Error logs (client-side ErrorBoundary catches)
+CREATE TABLE error_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    user_email TEXT,
+    route TEXT,
+    error_message TEXT NOT NULL,
+    error_stack TEXT,
+    user_agent TEXT,
+    viewport TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

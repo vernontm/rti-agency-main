@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { supabase } from '../lib/supabase'
 
 interface Props {
   children: ReactNode
@@ -7,24 +8,50 @@ interface Props {
 interface State {
   hasError: boolean
   error: Error | null
+  logged: boolean
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false, error: null }
+    this.state = { hasError: false, error: null, logged: false }
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  async componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await supabase.from('error_logs').insert({
+        user_id: user?.id ?? null,
+        user_email: user?.email ?? null,
+        route: window.location.pathname + window.location.search,
+        error_message: error.message?.slice(0, 2000) || 'Unknown error',
+        error_stack: ((error.stack || '') + '\n\nComponent stack:' + (errorInfo.componentStack || '')).slice(0, 8000),
+        user_agent: navigator.userAgent.slice(0, 500),
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+      })
+      this.setState({ logged: true })
+    } catch (logErr) {
+      console.error('Failed to log error:', logErr)
+    }
   }
 
   handleReload = () => {
     window.location.reload()
+  }
+
+  handleCopy = async () => {
+    if (!this.state.error) return
+    const text = `${this.state.error.message}\n\n${this.state.error.stack || ''}\n\nRoute: ${window.location.pathname}\nUser-Agent: ${navigator.userAgent}`
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      // fallback: select text in details
+    }
   }
 
   render() {
@@ -53,8 +80,7 @@ class ErrorBoundary extends Component<Props, State> {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Something went wrong</h1>
               <p className="mt-2 text-gray-600">
-                An unexpected error occurred. Please try reloading the page or returning to the
-                dashboard.
+                An unexpected error occurred. {this.state.logged ? "We've logged it and will look into it." : 'Please try reloading the page.'}
               </p>
             </div>
 
@@ -74,9 +100,16 @@ class ErrorBoundary extends Component<Props, State> {
             </div>
 
             {this.state.error && (
-              <details className="mt-4 text-left bg-gray-100 rounded-lg p-4">
-                <summary className="cursor-pointer text-sm font-medium text-gray-700 select-none">
-                  Error details
+              <details open className="mt-4 text-left bg-gray-100 rounded-lg p-4">
+                <summary className="cursor-pointer text-sm font-medium text-gray-700 select-none flex items-center justify-between">
+                  <span>Error details</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); this.handleCopy() }}
+                    className="ml-2 px-2 py-1 text-xs rounded bg-white border border-gray-300 hover:bg-gray-50"
+                  >
+                    Copy
+                  </button>
                 </summary>
                 <pre className="mt-2 text-xs text-red-700 whitespace-pre-wrap break-words overflow-auto max-h-48">
                   {this.state.error.message}

@@ -22,6 +22,7 @@ import {
   FolderOpen,
   Archive,
   ClipboardList,
+  AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -96,7 +97,7 @@ const Sidebar = () => {
       const { count: pendingForms, error: formsError } = await supabase
         .from('form_submissions')
         .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
+        .in('status', ['pending', 'received'])
 
       const { count: pendingJobApps, error: jobsError } = await supabase
         .from('job_applications')
@@ -192,6 +193,7 @@ const Sidebar = () => {
         { to: '/admin/job-positions', icon: Briefcase, label: 'Job Positions', tooltip: 'Manage job listings', roles: ['admin'] },
         { to: '/admin/file-manager', icon: FileText, label: 'File Manager', tooltip: 'Upload & manage files', roles: ['admin'] },
         { to: '/admin/archives', icon: Archive, label: 'Archives', tooltip: 'Archived records', roles: ['admin'] },
+        { to: '/admin/error-logs', icon: AlertTriangle, label: 'Error Logs', tooltip: 'Client-side crashes', roles: ['admin'] },
       ]
     },
     {
