@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import i18n from '../i18n/config'
 import { supabase } from '../lib/supabase'
 
 interface Props {
@@ -56,6 +57,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const t = i18n.t.bind(i18n)
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
           <div className="max-w-md w-full text-center space-y-6">
@@ -78,9 +80,9 @@ class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Something went wrong</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t('errorBoundary.title')}</h1>
               <p className="mt-2 text-gray-600">
-                An unexpected error occurred. {this.state.logged ? "We've logged it and will look into it." : 'Please try reloading the page.'}
+                {this.state.logged ? t('errorBoundary.loggedBody') : t('errorBoundary.notLoggedBody')}
               </p>
             </div>
 
@@ -89,26 +91,26 @@ class ErrorBoundary extends Component<Props, State> {
                 onClick={this.handleReload}
                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-[#F97316] text-white font-medium hover:bg-orange-600 transition-colors"
               >
-                Reload Page
+                {t('errorBoundary.reloadButton')}
               </button>
               <a
                 href="/dashboard"
                 className="w-full sm:w-auto px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition-colors inline-block"
               >
-                Go to Dashboard
+                {t('common.goToDashboard')}
               </a>
             </div>
 
             {this.state.error && (
               <details open className="mt-4 text-left bg-gray-100 rounded-lg p-4">
                 <summary className="cursor-pointer text-sm font-medium text-gray-700 select-none flex items-center justify-between">
-                  <span>Error details</span>
+                  <span>{t('errorBoundary.errorDetails')}</span>
                   <button
                     type="button"
                     onClick={(e) => { e.preventDefault(); this.handleCopy() }}
                     className="ml-2 px-2 py-1 text-xs rounded bg-white border border-gray-300 hover:bg-gray-50"
                   >
-                    Copy
+                    {t('errorBoundary.copyButton')}
                   </button>
                 </summary>
                 <pre className="mt-2 text-xs text-red-700 whitespace-pre-wrap break-words overflow-auto max-h-48">

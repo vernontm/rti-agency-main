@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
 import { FileText, ChevronLeft, Download, FolderOpen } from 'lucide-react'
@@ -22,6 +23,7 @@ interface CategoryFolder {
 }
 
 const DocumentsPage = () => {
+  const { t } = useTranslation()
   const [documents, setDocuments] = useState<Document[]>([])
   const [categories, setCategories] = useState<CategoryFolder[]>([])
   const [loading, setLoading] = useState(true)
@@ -92,7 +94,7 @@ const DocumentsPage = () => {
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setSelectedDocument(null)}>
               <ChevronLeft className="w-4 h-4 mr-1" />
-              Back
+              {t('common.back')}
             </Button>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">{selectedDocument.title}</h2>
@@ -104,7 +106,7 @@ const DocumentsPage = () => {
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => handleDownload(selectedDocument)}>
               <Download className="w-4 h-4 mr-1" />
-              Download
+              {t('common.download')}
             </Button>
             <span className="text-sm text-gray-400">
               {new Date(selectedDocument.created_at).toLocaleDateString()}
@@ -131,8 +133,8 @@ const DocumentsPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-        <p className="text-gray-600">Advisories and downloadable resources</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('documents.title')}</h1>
+        <p className="text-gray-600">{t('documents.subtitle')}</p>
       </div>
 
       {/* Dynamic Tabs */}
@@ -166,8 +168,8 @@ const DocumentsPage = () => {
       ) : (
         <Card className="p-12 text-center">
           <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No folders set up</h3>
-          <p className="text-gray-500">An admin needs to create folders before files can be organized.</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('documents.noFoldersTitle')}</h3>
+          <p className="text-gray-500">{t('documents.noFoldersBody')}</p>
         </Card>
       )}
 
@@ -177,9 +179,9 @@ const DocumentsPage = () => {
             <Card className="p-12 text-center">
               <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                No documents in {activeTab}
+                {t('documents.emptyFolderTitle', { folder: activeTab })}
               </h3>
-              <p className="text-gray-500">Check back later for new documents.</p>
+              <p className="text-gray-500">{t('documents.emptyFolderBody')}</p>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

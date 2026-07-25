@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/authStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -69,6 +70,7 @@ const computeFederalHolidays = (year: number): Holiday[] => {
 }
 
 const CalendarPage = () => {
+  const { t, i18n } = useTranslation()
   const { profile, getEffectiveRole } = useAuthStore()
   const effectiveRole = getEffectiveRole()
   const isAdmin = effectiveRole === 'admin'
@@ -89,6 +91,15 @@ const CalendarPage = () => {
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
+
+  const locale = i18n.language?.startsWith('es') ? 'es-ES' : 'en-US'
+
+  // Translate holiday name using known federal holiday map, fall back to stored name
+  const displayHolidayName = (name: string): string => {
+    const key = `calendar.federalHolidayNames.${name}`
+    const translated = t(key)
+    return translated === key ? name : translated
+  }
 
   useEffect(() => {
     fetchNotes()
@@ -137,7 +148,7 @@ const CalendarPage = () => {
 
   const handleAddHoliday = async () => {
     if (!newHolidayDate || !newHolidayName.trim()) {
-      toast.error('Date and name are required')
+      toast.error(t('calendar.holidayDateNameRequired'))
       return
     }
     try {
@@ -156,19 +167,19 @@ const CalendarPage = () => {
       setHolidays(prev => [...prev, data as Holiday].sort((a, b) => a.date.localeCompare(b.date)))
       setNewHolidayDate('')
       setNewHolidayName('')
-      toast.success('Holiday added')
+      toast.success(t('calendar.holidayAdded'))
     } catch (error: any) {
       console.error('Error adding holiday:', error)
-      toast.error(`Failed: ${error?.message || 'unknown error'}`)
+      toast.error(t('calendar.holidayFailed', { message: error?.message || t('calendar.unknownError') }))
     }
   }
 
   const handleDeleteHoliday = async (holiday: Holiday) => {
     if (!holiday.id) {
-      toast.error('Cannot delete this holiday (no ID — refresh and try again)')
+      toast.error(t('calendar.holidayNoId'))
       return
     }
-    if (!confirm(`Delete "${holiday.name}" on ${holiday.date}?`)) return
+    if (!confirm(t('calendar.deleteHolidayConfirm', { name: displayHolidayName(holiday.name), date: holiday.date }))) return
     try {
       const { error } = await supabase
         .from('calendar_holidays')
@@ -177,10 +188,10 @@ const CalendarPage = () => {
 
       if (error) throw error
       setHolidays(prev => prev.filter(h => h.id !== holiday.id))
-      toast.success('Holiday deleted')
+      toast.success(t('calendar.holidayDeleted'))
     } catch (error: any) {
       console.error('Error deleting holiday:', error)
-      toast.error(`Failed: ${error?.message || 'unknown error'}`)
+      toast.error(t('calendar.holidayFailed', { message: error?.message || t('calendar.unknownError') }))
     }
   }
 
@@ -194,10 +205,10 @@ const CalendarPage = () => {
 
       if (error) throw error
       setHolidays(prev => prev.map(h => h.id === holiday.id ? { ...h, date: newDate } : h).sort((a, b) => a.date.localeCompare(b.date)))
-      toast.success('Date updated')
+      toast.success(t('calendar.holidayDateUpdated'))
     } catch (error: any) {
       console.error('Error updating holiday:', error)
-      toast.error(`Failed: ${error?.message || 'unknown error'}`)
+      toast.error(t('calendar.holidayFailed', { message: error?.message || t('calendar.unknownError') }))
     }
   }
 
@@ -241,19 +252,19 @@ const CalendarPage = () => {
 
   const handleSaveNote = async () => {
     if (!selectedDate || !noteTitle.trim()) {
-      toast.error('Please enter a title')
+      toast.error(t('calendar.titleRequired'))
       return
     }
 
-    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
+    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString(locale, {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
     })
-    const announcementTitle = `📅 Calendar Update: ${noteTitle.trim()}`
+    const announcementTitle = `📅 ${t('calendar.calendarNoteAnnouncementTitle', { title: noteTitle.trim() })}`
     const announcementContent = noteDescription.trim()
-      ? `${noteDescription.trim()}\n\nDate: ${formattedDate}`
-      : `A new calendar note has been added for ${formattedDate}.`
+      ? `${noteDescription.trim()}\n\n${t('calendar.calendarNoteAnnouncementDate', { date: formattedDate })}`
+      : t('calendar.calendarNoteAnnouncementFallback', { date: formattedDate })
 
     try {
       if (editingNote) {
@@ -275,7 +286,7 @@ const CalendarPage = () => {
           } as any)
           .eq('calendar_note_id', editingNote.id)
 
-        toast.success('Note updated')
+        toast.success(t('calendar.noteUpdated'))
       } else {
         const { data: newNote, error } = await supabase
           .from('calendar_notes')
@@ -299,14 +310,14 @@ const CalendarPage = () => {
           calendar_note_id: (newNote as { id: string } | null)?.id,
         } as any)
 
-        toast.success('Note added and notification sent')
+        toast.success(t('calendar.noteAdded'))
       }
 
       closeNoteModal()
       fetchNotes()
     } catch (error) {
       console.error('Error saving note:', error)
-      toast.error(editingNote ? 'Failed to update note' : 'Failed to add note')
+      toast.error(editingNote ? t('calendar.updateNoteError') : t('calendar.addNoteError'))
     }
   }
 
@@ -318,11 +329,11 @@ const CalendarPage = () => {
         .eq('id', noteId)
 
       if (error) throw error
-      toast.success('Note deleted')
+      toast.success(t('calendar.noteDeleted'))
       fetchNotes()
     } catch (error) {
       console.error('Error deleting note:', error)
-      toast.error('Failed to delete note')
+      toast.error(t('calendar.deleteNoteError'))
     }
   }
 
@@ -380,16 +391,16 @@ const CalendarPage = () => {
     setCurrentDate(new Date())
   }
 
-  const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ]
+  const monthKeys = [
+    'january', 'february', 'march', 'april', 'may', 'june',
+    'july', 'august', 'september', 'october', 'november', 'december',
+  ] as const
 
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
 
   const getFullDateLabel = (day: number) => {
     const date = new Date(year, month, day)
-    return date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+    return date.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   }
 
   const colorOptions = [
@@ -411,13 +422,13 @@ const CalendarPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Calendar</h1>
-          <p className="text-gray-600">View holidays and important dates</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('calendar.title')}</h1>
+          <p className="text-gray-600">{t('calendar.subtitle')}</p>
         </div>
         {isAdmin && (
           <Button variant="outline" onClick={() => setShowHolidaysModal(true)}>
             <Settings className="w-4 h-4 mr-2" />
-            Manage Holidays
+            {t('calendar.manageHolidays')}
           </Button>
         )}
       </div>
@@ -428,44 +439,44 @@ const CalendarPage = () => {
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
           <div className="flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={goToToday}>
-              Today
+              {t('calendar.today')}
             </Button>
             <div className="flex items-center gap-1">
               <button
                 onClick={prevMonth}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                aria-label="Previous month"
+                aria-label={t('calendar.previousMonth')}
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
               <button
                 onClick={nextMonth}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                aria-label="Next month"
+                aria-label={t('calendar.nextMonth')}
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
             </div>
             <h2 className="text-xl font-semibold text-gray-900">
-              {monthNames[month]} {year}
+              {t(`calendar.months.${monthKeys[month]}`)} {year}
             </h2>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <Star className="w-4 h-4 text-orange-500" />
-              <span>Holiday</span>
+              <span>{t('calendar.holidayLegend')}</span>
             </div>
           </div>
         </div>
 
         {/* Day Names Header */}
         <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">
-          {dayNames.map((day) => (
+          {dayKeys.map((dayKey) => (
             <div
-              key={day}
+              key={dayKey}
               className="py-3 text-center text-sm font-medium text-gray-500"
             >
-              {day}
+              {t(`calendar.daysShort.${dayKey}`)}
             </div>
           ))}
         </div>
@@ -529,7 +540,7 @@ const CalendarPage = () => {
                         setShowNoteModal(true)
                       }}
                       className="p-1 hover:bg-gray-200 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      aria-label="Add note"
+                      aria-label={t('calendar.addNoteAria')}
                     >
                       <Plus className="w-4 h-4 text-gray-400" />
                     </button>
@@ -540,7 +551,7 @@ const CalendarPage = () => {
                 {holiday && (
                   <div className="mb-1 px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded truncate flex items-center gap-1">
                     <Star className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">{holiday.name}</span>
+                    <span className="truncate">{displayHolidayName(holiday.name)}</span>
                   </div>
                 )}
 
@@ -554,7 +565,7 @@ const CalendarPage = () => {
                         e.stopPropagation()
                         if (isAdmin) openEditNote(note)
                       }}
-                      title={isAdmin ? 'Click to edit' : note.title}
+                      title={isAdmin ? t('calendar.clickToEdit') : note.title}
                     >
                       <div className="flex items-center justify-between">
                         <span className="truncate">{note.title}</span>
@@ -565,7 +576,7 @@ const CalendarPage = () => {
                               handleDeleteNote(note.id)
                             }}
                             className="ml-1 hover:text-red-600"
-                            aria-label="Delete note"
+                            aria-label={t('calendar.deleteNoteAria')}
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -575,7 +586,7 @@ const CalendarPage = () => {
                   ))}
                   {dayNotes.length > 2 && (
                     <div className="text-xs text-gray-500 px-2">
-                      +{dayNotes.length - 2} more
+                      {t('calendar.moreCount', { count: dayNotes.length - 2 })}
                     </div>
                   )}
                 </div>
@@ -589,16 +600,16 @@ const CalendarPage = () => {
       <div className="flex items-center gap-6 text-sm text-gray-600">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-blue-600" />
-          <span>Today</span>
+          <span>{t('calendar.todayLegend')}</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded bg-orange-100 border border-orange-200" />
-          <span>Holiday</span>
+          <span>{t('calendar.holidayLegend')}</span>
         </div>
         {isAdmin && (
           <div className="flex items-center gap-2">
             <CalendarIcon className="w-4 h-4 text-blue-600" />
-            <span>Click any day to add a note</span>
+            <span>{t('calendar.clickToAddHint')}</span>
           </div>
         )}
       </div>
@@ -609,16 +620,30 @@ const CalendarPage = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <h3 id="note-modal-title" className="text-lg font-semibold text-gray-900">
-                {editingNote ? 'Edit Note' : 'Add Note'} - {selectedDate && new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {editingNote
+                  ? t('calendar.editNoteModalTitle', {
+                      date: selectedDate
+                        ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(locale, {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                          })
+                        : '',
+                    })
+                  : t('calendar.addNoteModalTitle', {
+                      date: selectedDate
+                        ? new Date(selectedDate + 'T00:00:00').toLocaleDateString(locale, {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                          })
+                        : '',
+                    })}
               </h3>
               <button
                 onClick={closeNoteModal}
                 className="p-2 hover:bg-gray-100 rounded-full"
-                aria-label="Close dialog"
+                aria-label={t('common.closeDialog')}
               >
                 <X className="w-5 h-5 text-gray-500" />
               </button>
@@ -627,25 +652,25 @@ const CalendarPage = () => {
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
+                  {t('calendar.titleField')}
                 </label>
                 <input
                   type="text"
                   value={noteTitle}
                   onChange={(e) => setNoteTitle(e.target.value)}
-                  placeholder="Enter note title"
+                  placeholder={t('calendar.titleFieldPlaceholder')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description (optional)
+                  {t('calendar.descriptionField')}
                 </label>
                 <textarea
                   value={noteDescription}
                   onChange={(e) => setNoteDescription(e.target.value)}
-                  placeholder="Enter description"
+                  placeholder={t('calendar.descriptionFieldPlaceholder')}
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
@@ -653,14 +678,14 @@ const CalendarPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Color
+                  {t('calendar.colorField')}
                 </label>
                 <div className="flex gap-2">
                   {colorOptions.map((color) => (
                     <button
                       key={color.value}
                       onClick={() => setNoteColor(color.value)}
-                      aria-label={`Select ${color.value} color`}
+                      aria-label={t('calendar.colorAria', { color: color.value })}
                       className={`w-8 h-8 rounded-full ${color.bg} ${
                         noteColor === color.value
                           ? 'ring-2 ring-offset-2 ring-gray-400'
@@ -674,10 +699,10 @@ const CalendarPage = () => {
 
             <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
               <Button variant="outline" onClick={closeNoteModal}>
-                Cancel
+                {t('calendar.cancelButton')}
               </Button>
               <Button onClick={handleSaveNote}>
-                {editingNote ? 'Save Changes' : 'Add Note'}
+                {editingNote ? t('calendar.saveNoteButton') : t('calendar.addNoteButton')}
               </Button>
             </div>
           </div>
@@ -693,13 +718,13 @@ const CalendarPage = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="holidays-modal-title">
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <div>
-                <h2 id="holidays-modal-title" className="text-xl font-bold text-gray-900">Manage Holidays</h2>
-                <p className="text-sm text-gray-500">Holidays for {year}</p>
+                <h2 id="holidays-modal-title" className="text-xl font-bold text-gray-900">{t('calendar.manageHolidays')}</h2>
+                <p className="text-sm text-gray-500">{t('calendar.holidaysFor', { year })}</p>
               </div>
               <button
                 onClick={() => setShowHolidaysModal(false)}
                 className="p-2 hover:bg-gray-100 rounded-lg"
-                aria-label="Close"
+                aria-label={t('common.close')}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -708,7 +733,7 @@ const CalendarPage = () => {
             <div className="flex-1 overflow-y-auto p-4">
               {/* Add new holiday */}
               <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Add Holiday</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase mb-2">{t('calendar.addHolidayHeading')}</p>
                 <div className="flex gap-2">
                   <input
                     type="date"
@@ -720,7 +745,7 @@ const CalendarPage = () => {
                     type="text"
                     value={newHolidayName}
                     onChange={(e) => setNewHolidayName(e.target.value)}
-                    placeholder="Holiday name"
+                    placeholder={t('calendar.holidayNamePlaceholder')}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                   />
                   <Button onClick={handleAddHoliday} size="sm">
@@ -732,7 +757,7 @@ const CalendarPage = () => {
               {/* List of holidays */}
               <div className="space-y-1">
                 {holidays.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">No holidays yet</p>
+                  <p className="text-sm text-gray-500 text-center py-4">{t('calendar.noHolidays')}</p>
                 ) : (
                   holidays.map(h => (
                     <div
@@ -745,16 +770,16 @@ const CalendarPage = () => {
                         onBlur={(e) => handleUpdateHolidayDate(h, e.target.value)}
                         className="px-2 py-1 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-orange-500 focus:border-orange-500"
                       />
-                      <span className="flex-1 text-sm text-gray-900">{h.name}</span>
+                      <span className="flex-1 text-sm text-gray-900">{displayHolidayName(h.name)}</span>
                       {h.is_federal && (
                         <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                          Federal
+                          {t('calendar.federalBadge')}
                         </span>
                       )}
                       <button
                         onClick={() => handleDeleteHoliday(h)}
                         className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                        aria-label={`Delete ${h.name}`}
+                        aria-label={t('calendar.deleteHolidayAria', { name: displayHolidayName(h.name) })}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -766,7 +791,7 @@ const CalendarPage = () => {
 
             <div className="flex justify-end gap-3 p-4 border-t border-gray-200">
               <Button variant="outline" onClick={() => setShowHolidaysModal(false)}>
-                Done
+                {t('calendar.doneButton')}
               </Button>
             </div>
           </div>

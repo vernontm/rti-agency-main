@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/authStore'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
@@ -71,6 +72,7 @@ interface DashboardStats {
 }
 
 const DashboardPage = () => {
+  const { t, i18n } = useTranslation()
   const { profile, getEffectiveRole } = useAuthStore()
   const navigate = useNavigate()
   const effectiveRole = getEffectiveRole()
@@ -220,8 +222,8 @@ const DashboardPage = () => {
               activities.push({
                 id: item.id,
                 type: 'video_completed',
-                description: `Completed video: ${item.videos?.title || 'Unknown'}`,
-                user_name: item.users?.full_name || 'Unknown User',
+                description: t('dashboard.completedVideo', { title: item.videos?.title || t('dashboard.attention.unknown') }),
+                user_name: item.users?.full_name || t('dashboard.unknownUser'),
                 timestamp: item.completed_at,
               })
             }
@@ -233,8 +235,8 @@ const DashboardPage = () => {
             activities.push({
               id: item.id,
               type: 'form_submitted',
-              description: `Submitted form: ${item.forms?.form_name || 'Unknown'}`,
-              user_name: item.users?.full_name || 'Unknown User',
+              description: t('dashboard.submittedForm', { title: item.forms?.form_name || t('dashboard.attention.unknown') }),
+              user_name: item.users?.full_name || t('dashboard.unknownUser'),
               timestamp: item.submitted_at,
             })
           })
@@ -245,8 +247,8 @@ const DashboardPage = () => {
             activities.push({
               id: item.id,
               type: 'user_registered',
-              description: 'New user registered',
-              user_name: item.full_name || 'Unknown User',
+              description: t('dashboard.newUserRegistered'),
+              user_name: item.full_name || t('dashboard.unknownUser'),
               timestamp: item.created_at,
             })
           })
@@ -327,10 +329,10 @@ const DashboardPage = () => {
         .upsert({ key: 'dashboard_notes', value: notes, updated_at: new Date().toISOString() } as any, { onConflict: 'key' })
       
       if (error) throw error
-      toast.success('Notes saved', { duration: 1500 })
+      toast.success(t('dashboard.notes.saved'), { duration: 1500 })
     } catch (error) {
       console.error('Error saving notes:', error)
-      toast.error('Failed to save notes')
+      toast.error(t('dashboard.notes.saveError'))
     } finally {
       setSavingNotes(false)
     }
@@ -359,56 +361,14 @@ const DashboardPage = () => {
     const diffHours = Math.floor(diffMins / 60)
     const diffDays = Math.floor(diffHours / 24)
 
-    if (diffDays > 0) return `${diffDays}d ago`
-    if (diffHours > 0) return `${diffHours}h ago`
-    if (diffMins > 0) return `${diffMins}m ago`
-    return 'Just now'
+    if (diffDays > 0) return t('dashboard.ago.days', { count: diffDays })
+    if (diffHours > 0) return t('dashboard.ago.hours', { count: diffHours })
+    if (diffMins > 0) return t('dashboard.ago.minutes', { count: diffMins })
+    return t('dashboard.ago.justNow')
   }
 
   const isAdmin = effectiveRole === 'admin'
-
-  const statCards = [
-    {
-      title: 'Pending Approvals',
-      value: stats.pendingUsers,
-      icon: UserCheck,
-      color: 'bg-red-500',
-      show: isAdmin,
-      urgent: stats.pendingUsers > 0,
-    },
-    {
-      title: 'Pending Forms',
-      value: stats.pendingForms,
-      icon: FileText,
-      color: 'bg-orange-500',
-      show: isAdmin,
-      urgent: stats.pendingForms > 0,
-    },
-    {
-      title: 'Total Users',
-      value: stats.totalUsers,
-      icon: Users,
-      color: 'bg-blue-500',
-      show: isAdmin,
-      urgent: false,
-    },
-    {
-      title: 'Training Videos',
-      value: stats.activeVideos,
-      icon: Video,
-      color: 'bg-purple-500',
-      show: true,
-      urgent: false,
-    },
-    {
-      title: 'Announcements',
-      value: stats.unreadAnnouncements,
-      icon: Bell,
-      color: 'bg-green-500',
-      show: true,
-      urgent: false,
-    },
-  ]
+  // statCards was unused
 
   if (loading) {
     return (
@@ -421,13 +381,14 @@ const DashboardPage = () => {
 
   const getGreeting = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
+    if (hour < 12) return t('dashboard.goodMorning')
+    if (hour < 17) return t('dashboard.goodAfternoon')
+    return t('dashboard.goodEvening')
   }
 
   const formatDate = () => {
-    return new Date().toLocaleDateString('en-US', {
+    const locale = i18n.language?.startsWith('es') ? 'es-ES' : 'en-US'
+    return new Date().toLocaleDateString(locale, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -444,7 +405,7 @@ const DashboardPage = () => {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {getGreeting()}, {profile?.full_name?.split(' ')[0]}!
+            {getGreeting()}, {profile?.full_name?.split(' ')[0]}{t('dashboard.greetingSuffix')}
           </h1>
           <div className="flex items-center gap-2 text-gray-600 mt-1">
             <Calendar className="w-4 h-4" />
@@ -461,15 +422,15 @@ const DashboardPage = () => {
               <Target className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Your Progress</h2>
-              <p className="text-sm text-gray-600">Track your completion status</p>
+              <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.progress.title')}</h2>
+              <p className="text-sm text-gray-600">{t('dashboard.progress.subtitle')}</p>
             </div>
           </div>
 
           {/* Overall Progress Bar */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Overall Completion</span>
+              <span className="text-sm font-medium text-gray-700">{t('dashboard.progress.overall')}</span>
               <span className="text-lg font-bold text-blue-600">{stats.trainingCompletion}%</span>
             </div>
             <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
@@ -489,14 +450,14 @@ const DashboardPage = () => {
                   <Video className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Training Videos</p>
+                  <p className="text-sm text-gray-600">{t('dashboard.progress.trainingVideos')}</p>
                   <p className="text-xl font-bold text-gray-900">
                     {stats.completedVideos}/{stats.totalVideos}
                   </p>
                 </div>
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-orange-500 rounded-full"
                   style={{ width: `${stats.totalVideos > 0 ? (stats.completedVideos / stats.totalVideos) * 100 : 0}%` }}
                 />
@@ -504,13 +465,13 @@ const DashboardPage = () => {
               {pendingVideos > 0 && (
                 <p className="text-xs text-orange-600 mt-2 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {pendingVideos} video{pendingVideos !== 1 ? 's' : ''} remaining
+                  {t('dashboard.progress.videosRemaining', { count: pendingVideos })}
                 </p>
               )}
               {pendingVideos === 0 && stats.totalVideos > 0 && (
                 <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
-                  All videos completed!
+                  {t('dashboard.progress.allVideosDone')}
                 </p>
               )}
             </div>
@@ -522,18 +483,18 @@ const DashboardPage = () => {
                   <BookOpen className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Documents</p>
+                  <p className="text-sm text-gray-600">{t('dashboard.progress.documents')}</p>
                   <p className="text-xl font-bold text-gray-900">
                     {stats.totalDocuments}
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => navigate('/documents')}
                 className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-2"
               >
                 <Eye className="w-3 h-3" />
-                View documents
+                {t('dashboard.progress.viewDocuments')}
               </button>
             </div>
 
@@ -544,24 +505,24 @@ const DashboardPage = () => {
                   <Bell className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">New Announcements</p>
+                  <p className="text-sm text-gray-600">{t('dashboard.progress.newAnnouncements')}</p>
                   <p className="text-xl font-bold text-gray-900">
                     {stats.newAnnouncements}
                   </p>
                 </div>
               </div>
               {stats.newAnnouncements > 0 ? (
-                <button 
+                <button
                   onClick={() => navigate('/announcements')}
                   className="text-xs text-orange-600 hover:text-orange-800 flex items-center gap-1 mt-2"
                 >
                   <AlertCircle className="w-3 h-3" />
-                  {stats.newAnnouncements} unread this week
+                  {t('dashboard.progress.unreadThisWeek', { count: stats.newAnnouncements })}
                 </button>
               ) : (
                 <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3" />
-                  All caught up!
+                  {t('dashboard.progress.allCaughtUp')}
                 </p>
               )}
             </div>
@@ -571,11 +532,11 @@ const DashboardPage = () => {
           <div className="mt-4 pt-4 border-t border-blue-200 flex gap-3">
             <Button size="sm" onClick={() => navigate('/training')}>
               <Video className="w-4 h-4 mr-1" />
-              Continue Training
+              {t('dashboard.progress.continueTraining')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => navigate('/announcements')}>
               <Bell className="w-4 h-4 mr-1" />
-              View Announcements
+              {t('dashboard.progress.viewAnnouncements')}
             </Button>
           </div>
         </Card>
@@ -584,9 +545,7 @@ const DashboardPage = () => {
       {/* Admin greeting (simplified) */}
       {isAdmin && (
         <div>
-          <p className="text-gray-600">
-            Here's what's happening with your account today.
-          </p>
+          <p className="text-gray-600">{t('dashboard.todaySubtitle')}</p>
         </div>
       )}
 
@@ -595,20 +554,20 @@ const DashboardPage = () => {
         <div className="bg-gray-900 border border-gray-700 rounded-xl p-6">
           <div className="flex items-center gap-3 mb-4">
             <AlertCircle className="w-6 h-6 text-orange-400" />
-            <h2 className="text-lg font-semibold text-white">Items Requiring Attention</h2>
+            <h2 className="text-lg font-semibold text-white">{t('dashboard.attention.title')}</h2>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pending Users */}
             {stats.pendingUsersList.length > 0 && (
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">Pending User Approvals</h3>
-                  <button 
+                  <h3 className="font-semibold text-gray-900">{t('dashboard.attention.pendingUsersHeading')}</h3>
+                  <button
                     onClick={() => navigate('/admin/pending-users')}
                     className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
                   >
-                    View All <ArrowRight className="w-4 h-4" />
+                    {t('dashboard.attention.viewAll')} <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -631,7 +590,7 @@ const DashboardPage = () => {
                         className="bg-green-600 hover:bg-green-700"
                       >
                         <CheckCircle className="w-4 h-4 mr-1" />
-                        Approve
+                        {t('dashboard.attention.approve')}
                       </Button>
                     </div>
                   ))}
@@ -643,12 +602,12 @@ const DashboardPage = () => {
             {stats.pendingFormsList.length > 0 && (
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900">Pending Form Submissions</h3>
-                  <button 
+                  <h3 className="font-semibold text-gray-900">{t('dashboard.attention.pendingFormsHeading')}</h3>
+                  <button
                     onClick={() => navigate('/admin/forms')}
                     className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
                   >
-                    View All <ArrowRight className="w-4 h-4" />
+                    {t('dashboard.attention.viewAll')} <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="space-y-3">
@@ -660,17 +619,17 @@ const DashboardPage = () => {
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">
-                            {(form.forms as { title: string } | undefined)?.title || 'Form Submission'}
+                            {(form.forms as { title: string } | undefined)?.title || t('dashboard.attention.formSubmissionFallback')}
                           </p>
                           <p className="text-sm text-gray-500">
-                            by {(form.users as { full_name: string } | undefined)?.full_name || 'Unknown'} • {formatTimeAgo(form.created_at)}
+                            {t('dashboard.attention.byPerson', { name: (form.users as { full_name: string } | undefined)?.full_name || t('dashboard.attention.unknown') })} • {formatTimeAgo(form.created_at)}
                           </p>
                         </div>
                       </div>
                       <button
                         onClick={() => navigate('/admin/forms')}
                         className="text-blue-600 hover:text-blue-800"
-                        aria-label="View form submission"
+                        aria-label={t('dashboard.attention.viewSubmissionAria')}
                       >
                         <ArrowRight className="w-5 h-5" />
                       </button>
@@ -687,7 +646,7 @@ const DashboardPage = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Training Completion Rate
+              {t('dashboard.trainingCompletionTitle')}
             </h2>
             <div className="flex items-center gap-4">
               <div className="flex-1">
@@ -702,43 +661,41 @@ const DashboardPage = () => {
                 {stats.trainingCompletion}%
               </span>
             </div>
-            <p className="text-sm text-gray-600 mt-2">
-              Overall employee training completion
-            </p>
+            <p className="text-sm text-gray-600 mt-2">{t('dashboard.trainingCompletionSubtitle')}</p>
           </Card>
 
           <Card>
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Quick Actions
+              {t('dashboard.quickActionsTitle')}
             </h2>
             <div className="grid grid-cols-2 gap-3">
-              <button 
+              <button
                 onClick={() => navigate('/admin/pending-users')}
                 className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <UserCheck className="w-5 h-5" />
-                <span className="text-sm font-medium">Review Users</span>
+                <span className="text-sm font-medium">{t('dashboard.quickReviewUsers')}</span>
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/admin/videos')}
                 className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <Video className="w-5 h-5" />
-                <span className="text-sm font-medium">Upload Video</span>
+                <span className="text-sm font-medium">{t('dashboard.quickUploadVideo')}</span>
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/announcements')}
                 className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <Bell className="w-5 h-5" />
-                <span className="text-sm font-medium">Announcements</span>
+                <span className="text-sm font-medium">{t('dashboard.quickAnnouncements')}</span>
               </button>
-              <button 
+              <button
                 onClick={() => navigate('/admin/forms')}
                 className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
               >
                 <FileText className="w-5 h-5" />
-                <span className="text-sm font-medium">Review Forms</span>
+                <span className="text-sm font-medium">{t('dashboard.quickReviewForms')}</span>
               </button>
             </div>
           </Card>
@@ -752,7 +709,7 @@ const DashboardPage = () => {
           <Card>
             <div className="flex items-center gap-2 mb-4">
               <MessageSquare className="w-5 h-5 text-gray-600" />
-              <h2 className="text-lg font-semibold text-gray-900">Recent Employee Activity</h2>
+              <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.recentActivityTitle')}</h2>
             </div>
             {stats.recentActivity.length > 0 ? (
               <div className="space-y-3 max-h-80 overflow-y-auto">
@@ -777,7 +734,7 @@ const DashboardPage = () => {
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <Clock className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>No recent activity</p>
+                <p>{t('dashboard.recentActivityEmpty')}</p>
               </div>
             )}
           </Card>
@@ -787,24 +744,22 @@ const DashboardPage = () => {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <StickyNote className="w-5 h-5 text-blue-600" />
-                <h2 className="text-lg font-semibold text-gray-900">Quick Notes</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('dashboard.notes.title')}</h2>
               </div>
               {savingNotes && (
                 <span className="text-xs text-gray-500 flex items-center gap-1">
                   <Save className="w-3 h-3 animate-pulse" />
-                  Saving...
+                  {t('dashboard.notes.saving')}
                 </span>
               )}
             </div>
             <textarea
               value={adminNotes}
               onChange={(e) => handleNotesChange(e.target.value)}
-              placeholder="Write notes here... (auto-saves)"
+              placeholder={t('dashboard.notes.placeholder')}
               className="w-full h-64 p-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
-            <p className="text-xs text-gray-400 mt-2">
-              Notes are automatically saved as you type
-            </p>
+            <p className="text-xs text-gray-400 mt-2">{t('dashboard.notes.helpText')}</p>
           </Card>
         </div>
       )}

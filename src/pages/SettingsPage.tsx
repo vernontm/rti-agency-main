@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '../lib/supabase'
 import Card from '../components/ui/Card'
@@ -27,23 +28,10 @@ interface NotificationSetting {
   updated_at: string
 }
 
-const NOTIFICATION_LABELS: Record<string, { label: string; description: string }> = {
-  user_registration: { label: 'New User Registration', description: 'When a new user signs up' },
-  form_submission: { label: 'Form Submissions', description: 'When a form is submitted' },
-  job_application: { label: 'Job Applications', description: 'When a job application is received' },
-  contact_submission: { label: 'Contact Form', description: 'When a contact form is submitted' },
-  announcement: { label: 'Announcements', description: 'When a new announcement is created' },
-  calendar_event: { label: 'Calendar Events', description: 'When a calendar note is added' },
-}
-
-const RECIPIENT_OPTIONS: { value: NotificationRecipients; label: string }[] = [
-  { value: 'admin', label: 'Admins Only' },
-  { value: 'employee', label: 'Employees Only' },
-  { value: 'both', label: 'Admin & Employees' },
-  { value: 'none', label: 'Nobody' },
-]
+const RECIPIENT_KEYS: NotificationRecipients[] = ['admin', 'employee', 'both', 'none']
 
 const SettingsPage = () => {
+  const { t, i18n } = useTranslation()
   const { profile, updatePassword } = useAuthStore()
   const [activeTab, setActiveTab] = useState('profile')
   const [passwordForm, setPasswordForm] = useState({
@@ -69,6 +57,19 @@ const SettingsPage = () => {
 
   const isAdmin = profile?.role === 'admin'
 
+  const locale = i18n.language?.startsWith('es') ? 'es-ES' : 'en-US'
+
+  const getNotificationInfo = (type: string): { label: string; description: string } => {
+    const labelKey = `settings.notifications.types.${type}.label`
+    const descKey = `settings.notifications.types.${type}.description`
+    const label = t(labelKey)
+    const description = t(descKey)
+    return {
+      label: label === labelKey ? type : label,
+      description: description === descKey ? '' : description,
+    }
+  }
+
   // Fetch notification settings when tab is selected
   useEffect(() => {
     if (activeTab === 'notifications' && isAdmin) {
@@ -90,7 +91,7 @@ const SettingsPage = () => {
       setNotificationSettings(data || [])
     } catch (error) {
       console.error('Error fetching notification settings:', error)
-      toast.error('Failed to load notification settings')
+      toast.error(t('settings.notifications.loadError'))
     } finally {
       setNotifLoading(false)
     }
@@ -111,10 +112,10 @@ const SettingsPage = () => {
         .update({ ...updates, updated_by: profile?.id, updated_at: new Date().toISOString() })
         .eq('id', id)
       if (error) throw error
-      toast.success('Notification setting updated')
+      toast.success(t('settings.notifications.updateSuccess'))
     } catch (error) {
       console.error('Error updating notification setting:', error)
-      toast.error('Failed to update setting')
+      toast.error(t('settings.notifications.updateError'))
       // Revert on failure
       fetchNotificationSettings()
     }
@@ -131,7 +132,7 @@ const SettingsPage = () => {
       setPopups(data || [])
     } catch (error) {
       console.error('Error fetching popups:', error)
-      toast.error('Failed to load popups')
+      toast.error(t('settings.popups.loadError'))
     } finally {
       setPopupLoading(false)
     }
@@ -170,17 +171,17 @@ const SettingsPage = () => {
       if (editingPopup) {
         const { error } = await supabase.from('site_popups').update(payload).eq('id', editingPopup.id)
         if (error) throw error
-        toast.success('Popup updated')
+        toast.success(t('settings.popups.updateSuccess'))
       } else {
         const { error } = await supabase.from('site_popups').insert(payload)
         if (error) throw error
-        toast.success('Popup created')
+        toast.success(t('settings.popups.createSuccess'))
       }
       setShowPopupModal(false)
       fetchPopups()
     } catch (error) {
       console.error('Error saving popup:', error)
-      toast.error('Failed to save popup')
+      toast.error(t('settings.popups.saveError'))
     }
   }
 
@@ -189,22 +190,22 @@ const SettingsPage = () => {
     try {
       const { error } = await supabase.from('site_popups').update({ is_visible: !popup.is_visible }).eq('id', popup.id)
       if (error) throw error
-      toast.success(popup.is_visible ? 'Popup hidden' : 'Popup visible')
+      toast.success(popup.is_visible ? t('settings.popups.hiddenToast') : t('settings.popups.visibleToast'))
     } catch {
-      toast.error('Failed to update popup')
+      toast.error(t('settings.popups.toggleError'))
       fetchPopups()
     }
   }
 
   const deletePopup = async (id: string) => {
-    if (!confirm('Delete this popup?')) return
+    if (!confirm(t('settings.popups.deleteConfirm'))) return
     try {
       const { error } = await supabase.from('site_popups').delete().eq('id', id)
       if (error) throw error
-      toast.success('Popup deleted')
+      toast.success(t('settings.popups.deletedToast'))
       fetchPopups()
     } catch {
-      toast.error('Failed to delete popup')
+      toast.error(t('settings.popups.deleteError'))
     }
   }
 
@@ -212,12 +213,12 @@ const SettingsPage = () => {
     e.preventDefault()
 
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error("Passwords don't match")
+      toast.error(t('settings.passwordsDontMatch'))
       return
     }
 
     if (passwordForm.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters')
+      toast.error(t('settings.passwordMinLength'))
       return
     }
 
@@ -225,34 +226,34 @@ const SettingsPage = () => {
     try {
       const { error } = await updatePassword(passwordForm.newPassword)
       if (error) throw error
-      toast.success('Password updated successfully')
+      toast.success(t('settings.passwordUpdated'))
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     } catch (error) {
-      toast.error('Failed to update password')
+      toast.error(t('settings.updatePasswordError'))
     } finally {
       setLoading(false)
     }
   }
 
   const tabs = [
-    { id: 'profile', label: 'Profile', icon: User },
-    { id: 'security', label: 'Security', icon: Lock },
+    { id: 'profile', label: t('settings.profileSection'), icon: User },
+    { id: 'security', label: t('settings.securitySection'), icon: Lock },
     ...(isAdmin ? [
-      { id: 'notifications', label: 'Notifications', icon: Bell },
-      { id: 'popups', label: 'Site Popups', icon: Megaphone },
+      { id: 'notifications', label: t('settings.notificationsSection'), icon: Bell },
+      { id: 'popups', label: t('settings.sitePopupsSection'), icon: Megaphone },
     ] : []),
   ]
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600 mt-1">Manage your account settings</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('settings.title')}</h1>
+        <p className="text-gray-600 mt-1">{t('settings.subtitle')}</p>
       </div>
 
       <div className="flex gap-6">
         <Card className="w-64 h-fit" padding="sm">
-          <nav role="tablist" aria-label="Settings" className="space-y-1">
+          <nav role="tablist" aria-label={t('settings.tabsAriaLabel')} className="space-y-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -278,7 +279,7 @@ const SettingsPage = () => {
         <div className="flex-1" role="tabpanel" id={`settings-tabpanel-${activeTab}`} aria-labelledby={`settings-tab-${activeTab}`}>
           {activeTab === 'profile' && (
             <Card>
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Profile Information</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">{t('settings.profileInformation')}</h2>
               <div className="space-y-4">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center">
@@ -296,22 +297,22 @@ const SettingsPage = () => {
                 </div>
 
                 <Input
-                  label="Full Name"
+                  label={t('settings.fullNameField')}
                   value={profile?.full_name || ''}
                   disabled
                 />
                 <Input
-                  label="Email"
+                  label={t('settings.emailField')}
                   value={profile?.email || ''}
                   disabled
                 />
                 <Input
-                  label="Role"
+                  label={t('settings.roleField')}
                   value={profile?.role || ''}
                   disabled
                 />
                 <p className="text-sm text-gray-500">
-                  Contact an administrator to update your profile information.
+                  {t('settings.contactAdminHint')}
                 </p>
               </div>
             </Card>
@@ -319,10 +320,10 @@ const SettingsPage = () => {
 
           {activeTab === 'security' && (
             <Card>
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Change Password</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-6">{t('settings.changePasswordHeading')}</h2>
               <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
                 <Input
-                  label="Current Password"
+                  label={t('settings.currentPasswordField')}
                   type="password"
                   value={passwordForm.currentPassword}
                   onChange={(e) =>
@@ -331,7 +332,7 @@ const SettingsPage = () => {
                   required
                 />
                 <Input
-                  label="New Password"
+                  label={t('settings.newPasswordField')}
                   type="password"
                   value={passwordForm.newPassword}
                   onChange={(e) =>
@@ -340,7 +341,7 @@ const SettingsPage = () => {
                   required
                 />
                 <Input
-                  label="Confirm New Password"
+                  label={t('settings.confirmPasswordField')}
                   type="password"
                   value={passwordForm.confirmPassword}
                   onChange={(e) =>
@@ -349,7 +350,7 @@ const SettingsPage = () => {
                   required
                 />
                 <Button type="submit" loading={loading}>
-                  Update Password
+                  {t('settings.updatePassword')}
                 </Button>
               </form>
             </Card>
@@ -359,25 +360,25 @@ const SettingsPage = () => {
             <Card>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Site Popups</h2>
-                  <p className="text-sm text-gray-500">Manage announcement popups shown on the homepage.</p>
+                  <h2 className="text-lg font-semibold text-gray-900">{t('settings.popups.heading')}</h2>
+                  <p className="text-sm text-gray-500">{t('settings.popups.subheading')}</p>
                 </div>
                 <button
                   onClick={() => openPopupModal()}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
-                  New Popup
+                  {t('settings.popups.newPopup')}
                 </button>
               </div>
 
               {popupLoading ? (
                 <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                  <span className="sr-only">Loading popups...</span>
+                  <span className="sr-only">{t('settings.popups.loading')}</span>
                 </div>
               ) : popups.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No popups configured.</p>
+                <p className="text-gray-500 text-center py-8">{t('settings.popups.empty')}</p>
               ) : (
                 <div className="space-y-3">
                   {popups.map((popup) => {
@@ -396,15 +397,15 @@ const SettingsPage = () => {
                             <div className="flex items-center gap-2 mb-1">
                               <h3 className="font-semibold text-gray-900">{popup.title}</h3>
                               {isActive && (
-                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">Active Now</span>
+                                <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">{t('settings.popups.activeNow')}</span>
                               )}
                             </div>
                             <p className="text-sm text-gray-600 line-clamp-2 mb-2">{popup.message}</p>
                             <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-                              <span>Delay: {popup.delay_seconds}s</span>
-                              {popup.active_from && <span>From: {new Date(popup.active_from).toLocaleDateString()}</span>}
-                              {popup.active_until && <span>Until: {new Date(popup.active_until).toLocaleDateString()}</span>}
-                              {!popup.active_from && !popup.active_until && <span>Always active (no date range)</span>}
+                              <span>{t('settings.popups.delayLabel', { seconds: popup.delay_seconds })}</span>
+                              {popup.active_from && <span>{t('settings.popups.fromLabel', { date: new Date(popup.active_from).toLocaleDateString(locale) })}</span>}
+                              {popup.active_until && <span>{t('settings.popups.untilLabel', { date: new Date(popup.active_until).toLocaleDateString(locale) })}</span>}
+                              {!popup.active_from && !popup.active_until && <span>{t('settings.popups.alwaysActive')}</span>}
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -417,10 +418,10 @@ const SettingsPage = () => {
                               />
                               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                             </label>
-                            <button onClick={() => openPopupModal(popup)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" aria-label="Edit popup">
+                            <button onClick={() => openPopupModal(popup)} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg" aria-label={t('settings.popups.editAria')}>
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            <button onClick={() => deletePopup(popup.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" aria-label="Delete popup">
+                            <button onClick={() => deletePopup(popup.id)} className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg" aria-label={t('settings.popups.deleteAria')}>
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -435,25 +436,22 @@ const SettingsPage = () => {
 
           {activeTab === 'notifications' && isAdmin && (
             <Card>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">Email Notification Settings</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">{t('settings.notifications.heading')}</h2>
               <p className="text-sm text-gray-500 mb-6">
-                Configure which roles receive email notifications for each event type.
+                {t('settings.notifications.subheading')}
               </p>
 
               {notifLoading ? (
                 <div className="flex items-center justify-center py-12" role="status" aria-live="polite">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                  <span className="sr-only">Loading notification settings...</span>
+                  <span className="sr-only">{t('settings.notifications.loading')}</span>
                 </div>
               ) : notificationSettings.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No notification settings found.</p>
+                <p className="text-gray-500 text-center py-8">{t('settings.notifications.empty')}</p>
               ) : (
                 <div className="space-y-3">
                   {notificationSettings.map((setting) => {
-                    const info = NOTIFICATION_LABELS[setting.notification_type] || {
-                      label: setting.notification_type,
-                      description: '',
-                    }
+                    const info = getNotificationInfo(setting.notification_type)
                     return (
                       <div
                         key={setting.id}
@@ -500,9 +498,9 @@ const SettingsPage = () => {
                               : 'border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed'
                           }`}
                         >
-                          {RECIPIENT_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
+                          {RECIPIENT_KEYS.map((value) => (
+                            <option key={value} value={value}>
+                              {t(`settings.notifications.recipients.${value}`)}
                             </option>
                           ))}
                         </select>
@@ -521,37 +519,37 @@ const SettingsPage = () => {
           <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="popup-modal-title">
             <div className="flex items-center justify-between mb-6">
               <h2 id="popup-modal-title" className="text-xl font-bold text-gray-900">
-                {editingPopup ? 'Edit Popup' : 'New Popup'}
+                {editingPopup ? t('settings.popups.editModalTitle') : t('settings.popups.newModalTitle')}
               </h2>
-              <button onClick={() => setShowPopupModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close dialog">
+              <button onClick={() => setShowPopupModal(false)} className="p-2 hover:bg-gray-100 rounded-lg" aria-label={t('common.closeDialog')}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handlePopupSubmit} className="space-y-4">
               <Input
-                label="Title"
+                label={t('settings.popups.titleField')}
                 value={popupForm.title}
                 onChange={(e) => setPopupForm({ ...popupForm, title: e.target.value })}
-                placeholder="e.g. Office Relocation Notice"
+                placeholder={t('settings.popups.titlePlaceholder')}
                 required
               />
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.popups.messageField')}</label>
                 <textarea
                   value={popupForm.message}
                   onChange={(e) => setPopupForm({ ...popupForm, message: e.target.value })}
                   rows={5}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  placeholder="Enter the popup message..."
+                  placeholder={t('settings.popups.messagePlaceholder')}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Delay (seconds)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.popups.delayField')}</label>
                   <input
                     type="number"
                     min="0"
@@ -568,14 +566,14 @@ const SettingsPage = () => {
                       onChange={(e) => setPopupForm({ ...popupForm, is_visible: e.target.checked })}
                       className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                     />
-                    <span className="text-sm font-medium text-gray-700">Visible</span>
+                    <span className="text-sm font-medium text-gray-700">{t('settings.popups.visibleLabel')}</span>
                   </label>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Active From</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.popups.activeFromField')}</label>
                   <input
                     type="datetime-local"
                     value={popupForm.active_from}
@@ -584,7 +582,7 @@ const SettingsPage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Active Until</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">{t('settings.popups.activeUntilField')}</label>
                   <input
                     type="datetime-local"
                     value={popupForm.active_until}
@@ -593,14 +591,14 @@ const SettingsPage = () => {
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-500">Leave dates blank for the popup to always be active (when visible).</p>
+              <p className="text-xs text-gray-500">{t('settings.popups.dateRangeHint')}</p>
 
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setShowPopupModal(false)}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" className="flex-1">
-                  {editingPopup ? 'Update' : 'Create'}
+                  {editingPopup ? t('settings.popups.updateButton') : t('settings.popups.createButton')}
                 </Button>
               </div>
             </form>

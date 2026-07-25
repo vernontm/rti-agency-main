@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import type { Tables } from '../types/database.types'
@@ -53,6 +54,7 @@ const getVimeoId = (url: string | null | undefined): string | null => {
 }
 
 const TrainingPage = () => {
+  const { t } = useTranslation()
   const { profile } = useAuthStore()
   const [videos, setVideos] = useState<VideoWithProgress[]>([])
   const [modules, setModules] = useState<CourseModule[]>([])
@@ -91,7 +93,7 @@ const TrainingPage = () => {
         .select('*')
         .eq('key', 'engagement_check_interval')
         .single()
-      
+
       if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
       if (data?.value?.seconds) {
         setEngagementInterval(data.value.seconds)
@@ -121,9 +123,9 @@ const TrainingPage = () => {
     if (videos.length === 0) return
 
     const categoryMap = new Map<string, VideoWithProgress[]>()
-    
+
     videos.forEach(video => {
-      const category = video.category || 'General'
+      const category = video.category || t('training.generalCategory')
       if (!categoryMap.has(category)) {
         categoryMap.set(category, [])
       }
@@ -142,7 +144,7 @@ const TrainingPage = () => {
     })
 
     setModules(newModules)
-  }, [videos, profile, isVideoCompleted])
+  }, [videos, profile, isVideoCompleted, t])
 
   const fetchVideos = async () => {
     try {
@@ -160,7 +162,7 @@ const TrainingPage = () => {
       setVideos(data || [])
     } catch (error) {
       console.error('Error fetching videos:', error)
-      toast.error('Failed to load training videos')
+      toast.error(t('training.loadError'))
     } finally {
       setLoading(false)
     }
@@ -204,7 +206,7 @@ const TrainingPage = () => {
       if (playerRef.current) {
         playerRef.current.play()
       }
-      toast.success('Thanks for staying engaged!')
+      toast.success(t('training.stillWatchingThanks'))
     } catch (error) {
       console.error('Error recording check-in:', error)
     }
@@ -235,7 +237,7 @@ const TrainingPage = () => {
   const handleQuizComplete = (passed: boolean, score: number) => {
     setShowQuiz(false)
     if (passed) {
-      toast.success(`Quiz passed with ${score}%! Great job!`)
+      toast.success(t('training.quizPassedToast', { score }))
     }
     fetchVideos()
     setSelectedVideo(null)
@@ -257,13 +259,13 @@ const TrainingPage = () => {
     return (
       <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="sr-only">Loading...</span>
+        <span className="sr-only">{t('common.loadingSr')}</span>
       </div>
     )
   }
 
   const toggleModule = (moduleName: string) => {
-    setModules(prev => prev.map(m => 
+    setModules(prev => prev.map(m =>
       m.name === moduleName ? { ...m, isExpanded: !m.isExpanded } : m
     ))
   }
@@ -278,18 +280,18 @@ const TrainingPage = () => {
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Training Courses</h1>
-          <p className="text-gray-600 mt-1">Complete your required training modules</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('training.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('training.subtitle')}</p>
         </div>
         <div className="text-right">
-          <div className="text-sm text-gray-500">Overall Progress</div>
+          <div className="text-sm text-gray-500">{t('training.overallProgress')}</div>
           <div className="text-2xl font-bold text-blue-600">{getOverallProgress()}%</div>
         </div>
       </div>
 
       {/* Overall Progress Bar */}
       <div className="bg-gray-200 rounded-full h-3 overflow-hidden">
-        <div 
+        <div
           className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all duration-500"
           style={{ width: `${getOverallProgress()}%` }}
         />
@@ -313,7 +315,7 @@ const TrainingPage = () => {
                 <div className="text-left">
                   <h2 className="font-semibold text-gray-900">{module.name}</h2>
                   <p className="text-sm text-gray-500">
-                    {module.completedCount} of {module.totalCount} videos completed
+                    {t('training.videosCompleted', { completed: module.completedCount, total: module.totalCount })}
                   </p>
                 </div>
               </div>
@@ -321,11 +323,11 @@ const TrainingPage = () => {
                 {module.completedCount === module.totalCount && (
                   <span className="flex items-center gap-1 text-green-600 text-sm font-medium">
                     <CheckCircle className="w-4 h-4" />
-                    Complete
+                    {t('training.moduleComplete')}
                   </span>
                 )}
                 <div className="w-24 bg-gray-200 rounded-full h-2 overflow-hidden">
-                  <div 
+                  <div
                     className={`h-full rounded-full transition-all ${module.completedCount === module.totalCount ? 'bg-green-500' : 'bg-blue-500'}`}
                     style={{ width: `${(module.completedCount / module.totalCount) * 100}%` }}
                   />
@@ -350,8 +352,8 @@ const TrainingPage = () => {
                     const isLocked = video.is_required && !previousCompleted && index > 0
 
                     return (
-                      <div 
-                        key={video.id} 
+                      <div
+                        key={video.id}
                         className={`relative rounded-lg border ${isLocked ? 'opacity-60 border-gray-200' : 'border-gray-200 hover:border-blue-300'} overflow-hidden transition-all`}
                       >
                         <div className="relative aspect-video bg-gray-200">
@@ -369,7 +371,7 @@ const TrainingPage = () => {
                           {completed && (
                             <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
                               <CheckCircle className="w-3 h-3" />
-                              Done
+                              {t('training.doneBadge')}
                             </div>
                           )}
                           {isLocked && (
@@ -399,11 +401,11 @@ const TrainingPage = () => {
                               quizResult.passed ? 'text-green-600' : 'text-orange-600'
                             }`}>
                               <Award className="w-3 h-3" />
-                              Quiz: {quizResult.score}%
+                              {t('training.quizLabel', { score: quizResult.score })}
                               {quizResult.passed ? (
-                                <span className="ml-1 text-green-600">✓ Passed</span>
+                                <span className="ml-1 text-green-600">✓ {t('training.quizPassed')}</span>
                               ) : (
-                                <span className="ml-1 text-orange-600">- Retry</span>
+                                <span className="ml-1 text-orange-600">- {t('training.quizRetry')}</span>
                               )}
                             </div>
                           )}
@@ -425,12 +427,12 @@ const TrainingPage = () => {
                             {isLocked ? (
                               <>
                                 <Lock className="w-3 h-3 mr-1" />
-                                Locked
+                                {t('training.locked')}
                               </>
                             ) : (
                               <>
                                 <Play className="w-3 h-3 mr-1" />
-                                {completed ? 'Rewatch' : progressPercent > 0 ? 'Continue' : 'Start'}
+                                {completed ? t('training.rewatch') : progressPercent > 0 ? t('training.continue') : t('training.start')}
                               </>
                             )}
                           </Button>
@@ -447,7 +449,7 @@ const TrainingPage = () => {
         {modules.length === 0 && !loading && (
           <div className="text-center py-12 text-gray-500">
             <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No training courses available</p>
+            <p>{t('training.noCoursesAvailable')}</p>
           </div>
         )}
       </div>
@@ -464,12 +466,12 @@ const TrainingPage = () => {
                   setShowQuiz(false)
                 }}
                 className="p-2 text-white hover:bg-white/10 rounded-lg"
-                aria-label="Close video player"
+                aria-label={t('training.closeVideoPlayer')}
               >
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             {showQuiz ? (
               <VideoQuiz
                 videoId={selectedVideo.id}
@@ -487,9 +489,9 @@ const TrainingPage = () => {
                     return (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
                         <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
-                        <h3 className="text-lg font-semibold mb-2">No video file</h3>
+                        <h3 className="text-lg font-semibold mb-2">{t('training.noVideoFileTitle')}</h3>
                         <p className="text-sm text-gray-300 max-w-md">
-                          This video doesn't have a file attached. An admin needs to upload one or paste a YouTube URL in the Video Manager.
+                          {t('training.noVideoFileBody')}
                         </p>
                       </div>
                     )
@@ -510,7 +512,7 @@ const TrainingPage = () => {
                           onClick={handleVideoEnd}
                           className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
                         >
-                          ✓ Mark as Watched
+                          ✓ {t('training.markAsWatched')}
                         </button>
                       </>
                     )
@@ -531,7 +533,7 @@ const TrainingPage = () => {
                           onClick={handleVideoEnd}
                           className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
                         >
-                          ✓ Mark as Watched
+                          ✓ {t('training.markAsWatched')}
                         </button>
                       </>
                     )
@@ -545,9 +547,9 @@ const TrainingPage = () => {
                 {selectedVideo.video_url && !getYouTubeId(selectedVideo.video_url) && !getVimeoId(selectedVideo.video_url) && (videoError ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
                     <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
-                    <h3 className="text-lg font-semibold mb-2">Couldn't load video</h3>
+                    <h3 className="text-lg font-semibold mb-2">{t('training.cannotLoadVideoTitle')}</h3>
                     <p className="text-sm text-gray-300 max-w-md mb-2">{videoError}</p>
-                    <p className="text-xs text-gray-400 max-w-md mb-4 break-all">URL: {selectedVideo.video_url}</p>
+                    <p className="text-xs text-gray-400 max-w-md mb-4 break-all">{t('training.urlLabel', { url: selectedVideo.video_url })}</p>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -558,7 +560,7 @@ const TrainingPage = () => {
                           playerRef.current?.load()
                         }}
                       >
-                        Retry
+                        {t('training.retry')}
                       </Button>
                       <a
                         href={selectedVideo.video_url}
@@ -566,7 +568,7 @@ const TrainingPage = () => {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-white/10 text-white rounded-lg hover:bg-white/20"
                       >
-                        Open URL directly
+                        {t('training.openUrlDirectly')}
                       </a>
                     </div>
                   </div>
@@ -585,13 +587,13 @@ const TrainingPage = () => {
                         setVideoLoading(false)
                         const v = e.currentTarget
                         const err = v.error
-                        let msg = 'The video file could not be played.'
+                        let msg = t('training.videoErrorGeneric')
                         if (err) {
                           switch (err.code) {
-                            case 1: msg = 'Loading was aborted.'; break
-                            case 2: msg = 'Network error — the file URL may be unreachable.'; break
-                            case 3: msg = 'The video file is corrupted or in an unsupported format.'; break
-                            case 4: msg = 'The video file format isn\'t supported by your browser, or the URL is invalid/expired.'; break
+                            case 1: msg = t('training.videoErrorAborted'); break
+                            case 2: msg = t('training.videoErrorNetwork'); break
+                            case 3: msg = t('training.videoErrorCorrupt'); break
+                            case 4: msg = t('training.videoErrorFormat'); break
                           }
                         }
                         console.error('Video error:', err, 'URL:', selectedVideo.video_url)
@@ -618,13 +620,13 @@ const TrainingPage = () => {
                     <Card className="text-center max-w-sm">
                       <Award className="w-16 h-16 text-blue-500 mx-auto mb-4" />
                       <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        Still watching?
+                        {t('training.stillWatchingTitle')}
                       </h3>
                       <p className="text-gray-600 mb-4">
-                        Click below to continue your training
+                        {t('training.stillWatchingBody')}
                       </p>
                       <Button onClick={handleEngagementResponse} className="w-full">
-                        Yes, I'm here!
+                        {t('training.stillWatchingButton')}
                       </Button>
                     </Card>
                   </div>

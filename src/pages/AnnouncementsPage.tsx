@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import type { Tables, AnnouncementAudience } from '../types/database.types'
@@ -13,6 +14,7 @@ interface AnnouncementWithReads extends Tables<'announcements'> {
 }
 
 const AnnouncementsPage = () => {
+  const { t, i18n } = useTranslation()
   const { profile } = useAuthStore()
   const [announcements, setAnnouncements] = useState<AnnouncementWithReads[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,7 +46,7 @@ const AnnouncementsPage = () => {
       setAnnouncements(data || [])
     } catch (error) {
       console.error('Error fetching announcements:', error)
-      toast.error('Failed to load announcements')
+      toast.error(t('announcements.loadError'))
     } finally {
       setLoading(false)
     }
@@ -82,7 +84,7 @@ const AnnouncementsPage = () => {
           .eq('id', editingId)
 
         if (error) throw error
-        toast.success('Announcement updated')
+        toast.success(t('announcements.updated'))
       } else {
         const { error } = await supabase.from('announcements').insert({
           title: formData.title,
@@ -93,19 +95,19 @@ const AnnouncementsPage = () => {
         })
 
         if (error) throw error
-        toast.success('Announcement created!')
+        toast.success(t('announcements.created'))
       }
 
       closeModal()
       fetchAnnouncements()
     } catch (error) {
       console.error('Error saving announcement:', error)
-      toast.error(editingId ? 'Failed to update announcement' : 'Failed to create announcement')
+      toast.error(editingId ? t('announcements.updateError') : t('announcements.createError'))
     }
   }
 
   const handleDelete = async (announcementId: string, title: string) => {
-    if (!confirm(`Delete announcement "${title}"? This cannot be undone.`)) return
+    if (!confirm(t('announcements.deleteConfirm', { title }))) return
 
     try {
       const { error } = await supabase
@@ -116,10 +118,10 @@ const AnnouncementsPage = () => {
       if (error) throw error
 
       setAnnouncements(prev => prev.filter(a => a.id !== announcementId))
-      toast.success('Announcement deleted')
+      toast.success(t('announcements.deleted'))
     } catch (error) {
       console.error('Error deleting announcement:', error)
-      toast.error('Failed to delete announcement')
+      toast.error(t('announcements.deleteError'))
     }
   }
 
@@ -142,17 +144,25 @@ const AnnouncementsPage = () => {
   }
 
   const getAudienceBadge = (audience: AnnouncementAudience) => {
-    const badges: Record<string, { color: string; label: string }> = {
-      all: { color: 'bg-blue-100 text-blue-800', label: 'Everyone' },
-      employees: { color: 'bg-purple-100 text-purple-800', label: 'Employees' },
-      clients: { color: 'bg-green-100 text-green-800', label: 'Clients' },
-      admins: { color: 'bg-red-100 text-red-800', label: 'Admins' },
-      specific: { color: 'bg-orange-100 text-orange-800', label: 'Specific Users' },
+    const badgeStyles: Record<string, string> = {
+      all: 'bg-blue-100 text-blue-800',
+      employees: 'bg-purple-100 text-purple-800',
+      clients: 'bg-green-100 text-green-800',
+      admins: 'bg-red-100 text-red-800',
+      specific: 'bg-orange-100 text-orange-800',
     }
-    const badge = badges[audience] || badges.all
+    const badgeLabels: Record<string, string> = {
+      all: t('announcements.audienceBadges.all'),
+      employees: t('announcements.audienceBadges.employees'),
+      clients: t('announcements.audienceBadges.clients'),
+      admins: t('announcements.audienceBadges.admins'),
+      specific: t('announcements.audienceBadges.specific'),
+    }
+    const color = badgeStyles[audience] || badgeStyles.all
+    const label = badgeLabels[audience] || badgeLabels.all
     return (
-      <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
-        {badge.label}
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${color}`}>
+        {label}
       </span>
     )
   }
@@ -161,28 +171,30 @@ const AnnouncementsPage = () => {
   const filteredAnnouncements = announcements.filter(announcement => {
     // Only show sent announcements to non-admins
     if (!isAdmin && !announcement.sent_at) return false
-    
+
     const audience = announcement.target_audience
-    
+
     // 'all' is visible to everyone
     if (audience === 'all') return true
-    
+
     // Admins can see all announcements
     if (isAdmin) return true
-    
+
     // Filter based on user role
     if (audience === 'employees' && profile?.role === 'employee') return true
     if (audience === 'clients' && profile?.role === 'client') return true
     if (audience === 'admins' && profile?.role === 'admin') return true
-    
+
     return false
   })
+
+  const locale = i18n.language?.startsWith('es') ? 'es-ES' : 'en-US'
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="sr-only">Loading...</span>
+        <span className="sr-only">{t('common.loadingSr')}</span>
       </div>
     )
   }
@@ -191,13 +203,13 @@ const AnnouncementsPage = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Announcements</h1>
-          <p className="text-gray-600 mt-1">Stay updated with the latest news</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('announcements.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('announcements.subtitle')}</p>
         </div>
         {isAdmin && (
           <Button onClick={() => setShowModal(true)}>
             <Plus className="w-4 h-4 mr-1" />
-            New Announcement
+            {t('announcements.newButton')}
           </Button>
         )}
       </div>
@@ -221,7 +233,7 @@ const AnnouncementsPage = () => {
                     {isAdmin && getAudienceBadge(announcement.target_audience)}
                     {!read && (
                       <span className="px-2 py-0.5 bg-blue-500 text-white text-xs rounded-full">
-                        New
+                        {t('announcements.newBadge')}
                       </span>
                     )}
                   </div>
@@ -229,12 +241,12 @@ const AnnouncementsPage = () => {
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
                       <Clock className="w-4 h-4" />
-                      {new Date(announcement.created_at).toLocaleDateString()}
+                      {new Date(announcement.created_at).toLocaleDateString(locale)}
                     </span>
                     {isAdmin && (
                       <span className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
-                        {announcement.announcement_reads?.length || 0} read
+                        {t('announcements.readCount', { count: announcement.announcement_reads?.length || 0 })}
                       </span>
                     )}
                   </div>
@@ -247,8 +259,8 @@ const AnnouncementsPage = () => {
                         openEdit(announcement)
                       }}
                       className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      aria-label={`Edit announcement: ${announcement.title}`}
-                      title="Edit announcement"
+                      aria-label={t('announcements.editAria', { title: announcement.title })}
+                      title={t('announcements.editTitleAttr')}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -258,8 +270,8 @@ const AnnouncementsPage = () => {
                         handleDelete(announcement.id, announcement.title)
                       }}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      aria-label={`Delete announcement: ${announcement.title}`}
-                      title="Delete announcement"
+                      aria-label={t('announcements.deleteAria', { title: announcement.title })}
+                      title={t('announcements.deleteTitleAttr')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -273,7 +285,7 @@ const AnnouncementsPage = () => {
         {filteredAnnouncements.length === 0 && (
           <Card className="text-center py-12 text-gray-500">
             <Bell className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No announcements yet</p>
+            <p>{t('announcements.empty')}</p>
           </Card>
         )}
       </div>
@@ -283,12 +295,12 @@ const AnnouncementsPage = () => {
           <Card className="w-full max-w-lg" role="dialog" aria-modal="true" aria-labelledby="announcement-modal-title">
             <div className="flex items-center justify-between mb-6">
               <h2 id="announcement-modal-title" className="text-xl font-bold text-gray-900">
-                {editingId ? 'Edit Announcement' : 'New Announcement'}
+                {editingId ? t('announcements.editTitle') : t('announcements.newTitle')}
               </h2>
               <button
                 onClick={closeModal}
                 className="p-2 hover:bg-gray-100 rounded-lg"
-                aria-label="Close dialog"
+                aria-label={t('common.closeDialog')}
               >
                 <X className="w-5 h-5" />
               </button>
@@ -296,7 +308,7 @@ const AnnouncementsPage = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Input
-                label="Title"
+                label={t('announcements.titleField')}
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 required
@@ -304,7 +316,7 @@ const AnnouncementsPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Content
+                  {t('announcements.contentField')}
                 </label>
                 <textarea
                   value={formData.content}
@@ -317,7 +329,7 @@ const AnnouncementsPage = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Target Audience
+                  {t('announcements.audienceField')}
                 </label>
                 <select
                   value={formData.target_audience}
@@ -326,10 +338,10 @@ const AnnouncementsPage = () => {
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">Everyone</option>
-                  <option value="admins">Admins Only</option>
-                  <option value="employees">Employees Only</option>
-                  <option value="clients">Clients Only</option>
+                  <option value="all">{t('announcements.audienceEveryone')}</option>
+                  <option value="admins">{t('announcements.audienceAdmins')}</option>
+                  <option value="employees">{t('announcements.audienceEmployees')}</option>
+                  <option value="clients">{t('announcements.audienceClients')}</option>
                 </select>
               </div>
 
@@ -340,11 +352,11 @@ const AnnouncementsPage = () => {
                   className="flex-1"
                   onClick={closeModal}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button type="submit" className="flex-1">
                   <Send className="w-4 h-4 mr-1" />
-                  {editingId ? 'Save Changes' : 'Publish'}
+                  {editingId ? t('announcements.saveChangesButton') : t('announcements.publishButton')}
                 </Button>
               </div>
             </form>

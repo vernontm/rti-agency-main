@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '../../stores/authStore'
 import { supabase } from '../../lib/supabase'
+import LanguageToggle from '../LanguageToggle'
 import {
   LayoutDashboard,
   Users,
@@ -64,6 +66,7 @@ const Tooltip = ({ text, collapsed }: { text: string; collapsed: boolean }) => (
 )
 
 const Sidebar = () => {
+  const { t } = useTranslation()
   const { profile, signOut, viewAsRole, setViewAsRole, getEffectiveRole } = useAuthStore()
   const effectiveRole = getEffectiveRole()
   const isActualAdmin = profile?.role === 'admin'
@@ -168,8 +171,8 @@ const Sidebar = () => {
       icon: LayoutDashboard,
       roles: ['admin', 'employee', 'client'],
       items: [
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', tooltip: 'Overview & quick stats', roles: ['admin', 'employee', 'client'] },
-        { to: '/announcements', icon: Bell, label: 'Announcements', tooltip: 'Company announcements', roles: ['admin', 'employee', 'client'] },
+        { to: '/dashboard', icon: LayoutDashboard, label: t('sidebar.items.dashboard'), tooltip: t('sidebar.tooltips.dashboard'), roles: ['admin', 'employee', 'client'] },
+        { to: '/announcements', icon: Bell, label: t('sidebar.items.announcements'), tooltip: t('sidebar.tooltips.announcements'), roles: ['admin', 'employee', 'client'] },
       ]
     },
     {
@@ -177,10 +180,10 @@ const Sidebar = () => {
       icon: GraduationCap,
       roles: ['admin', 'employee', 'client'],
       items: [
-        { to: '/training', icon: Video, label: 'Training', tooltip: 'Training videos & courses', roles: ['admin', 'employee', 'client'] },
-        { to: '/educator-area', icon: ClipboardList, label: 'Forms', tooltip: 'Submit & view forms', roles: ['admin', 'employee'] },
-        { to: '/documents', icon: FolderOpen, label: 'Documents', tooltip: 'Advisories & downloads', roles: ['admin', 'employee'] },
-        { to: '/calendar', icon: Calendar, label: 'Calendar', tooltip: 'Schedule & events', roles: ['admin', 'employee'] },
+        { to: '/training', icon: Video, label: t('sidebar.items.training'), tooltip: t('sidebar.tooltips.training'), roles: ['admin', 'employee', 'client'] },
+        { to: '/educator-area', icon: ClipboardList, label: t('sidebar.items.forms'), tooltip: t('sidebar.tooltips.forms'), roles: ['admin', 'employee'] },
+        { to: '/documents', icon: FolderOpen, label: t('sidebar.items.documents'), tooltip: t('sidebar.tooltips.documents'), roles: ['admin', 'employee'] },
+        { to: '/calendar', icon: Calendar, label: t('sidebar.items.calendar'), tooltip: t('sidebar.tooltips.calendar'), roles: ['admin', 'employee'] },
       ]
     },
     {
@@ -188,13 +191,13 @@ const Sidebar = () => {
       icon: Users,
       roles: ['admin'],
       items: [
-        { to: '/admin/inbox', icon: Inbox, label: 'Inbox', tooltip: 'Pending items & submissions', roles: ['admin'] },
-        { to: '/users', icon: Users, label: 'Users', tooltip: 'Manage user accounts', roles: ['admin'] },
-        { to: '/admin/job-positions', icon: Briefcase, label: 'Job Positions', tooltip: 'Manage job listings', roles: ['admin'] },
-        { to: '/admin/file-manager', icon: FileText, label: 'File Manager', tooltip: 'Upload & manage files', roles: ['admin'] },
-        { to: '/admin/archives', icon: Archive, label: 'Archives', tooltip: 'Archived records', roles: ['admin'] },
+        { to: '/admin/inbox', icon: Inbox, label: t('sidebar.items.inbox'), tooltip: t('sidebar.tooltips.inbox'), roles: ['admin'] },
+        { to: '/users', icon: Users, label: t('sidebar.items.users'), tooltip: t('sidebar.tooltips.users'), roles: ['admin'] },
+        { to: '/admin/job-positions', icon: Briefcase, label: t('sidebar.items.jobPositions'), tooltip: t('sidebar.tooltips.jobPositions'), roles: ['admin'] },
+        { to: '/admin/file-manager', icon: FileText, label: t('sidebar.items.fileManager'), tooltip: t('sidebar.tooltips.fileManager'), roles: ['admin'] },
+        { to: '/admin/archives', icon: Archive, label: t('sidebar.items.archives'), tooltip: t('sidebar.tooltips.archives'), roles: ['admin'] },
         ...(profile?.email === 'rvernonmedia@gmail.com'
-          ? [{ to: '/admin/error-logs', icon: AlertTriangle, label: 'Error Logs', tooltip: 'Client-side crashes', roles: ['admin'] }]
+          ? [{ to: '/admin/error-logs', icon: AlertTriangle, label: t('sidebar.items.errorLogs'), tooltip: t('sidebar.tooltips.errorLogs'), roles: ['admin'] }]
           : []),
       ]
     },
@@ -203,9 +206,9 @@ const Sidebar = () => {
       icon: PenTool,
       roles: ['admin'],
       items: [
-        { to: '/admin/forms', icon: ClipboardList, label: 'Forms Manager', tooltip: 'Upload & manage fillable forms', roles: ['admin'] },
-        { to: '/admin/videos', icon: Film, label: 'Video Manager', tooltip: 'Manage training videos', roles: ['admin'] },
-        { to: '/admin/video-settings', icon: Sliders, label: 'Video Settings', tooltip: 'Video categories & config', roles: ['admin'] },
+        { to: '/admin/forms', icon: ClipboardList, label: t('sidebar.items.formsManager'), tooltip: t('sidebar.tooltips.formsManager'), roles: ['admin'] },
+        { to: '/admin/videos', icon: Film, label: t('sidebar.items.videoManager'), tooltip: t('sidebar.tooltips.videoManager'), roles: ['admin'] },
+        { to: '/admin/video-settings', icon: Sliders, label: t('sidebar.items.videoSettings'), tooltip: t('sidebar.tooltips.videoSettings'), roles: ['admin'] },
       ]
     },
     {
@@ -213,10 +216,18 @@ const Sidebar = () => {
       icon: Settings,
       roles: ['admin'],
       items: [
-        { to: '/settings', icon: Settings, label: 'Settings', tooltip: 'App configuration', roles: ['admin'] },
+        { to: '/settings', icon: Settings, label: t('sidebar.items.settings'), tooltip: t('sidebar.tooltips.settings'), roles: ['admin'] },
       ]
     },
   ]
+
+  const categoryLabels: Record<string, string> = {
+    'Main': t('sidebar.categories.main'),
+    'Educator Area': t('sidebar.categories.educatorArea'),
+    'Management': t('sidebar.categories.management'),
+    'Content Tools': t('sidebar.categories.contentTools'),
+    'Settings': t('sidebar.categories.settings'),
+  }
 
   const filteredCategories = navCategories
     .filter(cat => effectiveRole && cat.roles.includes(effectiveRole))
@@ -235,13 +246,13 @@ const Sidebar = () => {
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         {!collapsed && (
-          <h1 className="text-xl font-bold text-orange-400">RTI Agency</h1>
+          <h1 className="text-xl font-bold text-orange-400">{t('sidebar.brand')}</h1>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 hover:bg-gray-800 rounded-lg transition-colors"
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? t('sidebar.expandTooltip') : t('sidebar.collapseTooltip')}
+          aria-label={collapsed ? t('sidebar.expandTooltip') : t('sidebar.collapseTooltip')}
         >
           {collapsed ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
         </button>
@@ -265,7 +276,7 @@ const Sidebar = () => {
                 >
                   <span className="flex items-center gap-2">
                     <CategoryIcon size={14} />
-                    {category.name}
+                    {categoryLabels[category.name] || category.name}
                   </span>
                   <ChevronDown
                     size={14}
@@ -323,36 +334,43 @@ const Sidebar = () => {
         {/* View As Role Switcher - Admin Only */}
         {!collapsed && isActualAdmin && (
           <div className="mb-4">
-            <label className="block text-xs text-gray-500 mb-1">View as</label>
+            <label className="block text-xs text-gray-500 mb-1">{t('sidebar.viewAs')}</label>
             <select
               value={viewAsRole || ''}
               onChange={(e) => setViewAsRole(e.target.value as 'admin' | 'employee' | 'client' | null || null)}
               className="w-full bg-gray-800 text-white text-sm rounded-lg px-3 py-2 border border-gray-700 focus:border-orange-500 focus:outline-none"
             >
-              <option value="">Admin (Default)</option>
-              <option value="employee">Employee</option>
-              <option value="client">Client</option>
+              <option value="">{t('sidebar.adminDefault')}</option>
+              <option value="employee">{t('sidebar.viewAsEmployee')}</option>
+              <option value="client">{t('sidebar.viewAsClient')}</option>
             </select>
             {viewAsRole && (
-              <p className="text-xs text-orange-400 mt-1">Viewing as {viewAsRole}</p>
+              <p className="text-xs text-orange-400 mt-1">
+                {t('sidebar.viewingAs', { role: t(`sidebar.roles.${viewAsRole}`) })}
+              </p>
             )}
           </div>
         )}
         {!collapsed && profile && (
           <div className="mb-4">
             <p className="text-sm font-medium truncate">{profile.full_name}</p>
-            <p className="text-xs text-gray-500 capitalize">{profile.role}</p>
+            <p className="text-xs text-gray-500 capitalize">
+              {t(`sidebar.roles.${profile.role}`, { defaultValue: profile.role })}
+            </p>
           </div>
         )}
+        <div className="mb-3">
+          <LanguageToggle collapsed={collapsed} />
+        </div>
         <div className="relative group/item">
           <button
             onClick={signOut}
             className="flex items-center gap-3 px-3 py-2 w-full text-gray-400 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
           >
             <LogOut size={20} />
-            {!collapsed && <span className="text-sm">Sign Out</span>}
+            {!collapsed && <span className="text-sm">{t('sidebar.signOut')}</span>}
           </button>
-          {collapsed && <Tooltip text="Sign Out" collapsed={collapsed} />}
+          {collapsed && <Tooltip text={t('sidebar.signOut')} collapsed={collapsed} />}
         </div>
       </div>
     </aside>

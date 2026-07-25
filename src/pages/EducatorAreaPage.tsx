@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import Card from '../components/ui/Card'
@@ -39,6 +40,7 @@ interface FormSubmissionWithForm {
 }
 
 const EducatorAreaPage = () => {
+  const { t, i18n } = useTranslation()
   const { profile, getEffectiveRole } = useAuthStore()
   const effectiveRole = getEffectiveRole()
   const isAdmin = effectiveRole === 'admin'
@@ -68,11 +70,11 @@ const EducatorAreaPage = () => {
         .from('form_submissions')
         .select(`*, forms (*)`)
         .order('submitted_at', { ascending: false })
-      
+
       if (profile?.role !== 'admin') {
         submissionsQuery = submissionsQuery.eq('submitted_by', profile?.id)
       }
-      
+
       const { data: submissionsData, error: submissionsError } = await submissionsQuery
 
       if (submissionsError) throw submissionsError
@@ -81,14 +83,14 @@ const EducatorAreaPage = () => {
       setSubmissions((submissionsData as FormSubmissionWithForm[]) || [])
     } catch (error) {
       console.error('Error fetching educator area data:', error)
-      toast.error('Failed to load data')
+      toast.error(t('educatorArea.loadError'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleDeleteSubmission = async (submissionId: string, signedPdfUrl?: string | null) => {
-    if (!confirm('Are you sure you want to delete this submission? This action cannot be undone.')) {
+    if (!confirm(t('educatorArea.deleteSubmissionConfirm'))) {
       return
     }
 
@@ -110,11 +112,11 @@ const EducatorAreaPage = () => {
 
       if (error) throw error
 
-      toast.success('Submission deleted')
+      toast.success(t('educatorArea.submissionDeleted'))
       fetchData()
     } catch (error) {
       console.error('Error deleting submission:', error)
-      toast.error('Failed to delete submission')
+      toast.error(t('educatorArea.deleteSubmissionError'))
     }
   }
 
@@ -125,7 +127,7 @@ const EducatorAreaPage = () => {
     const pdfUrl = schema.pdf_url || schema.pdfUrl
 
     try {
-      toast.loading('Generating PDF...', { id: 'pdf-dl' })
+      toast.loading(t('educatorArea.generatingPdf'), { id: 'pdf-dl' })
 
       let pdfBytes: Uint8Array
       if (schema.acroForm) {
@@ -149,11 +151,11 @@ const EducatorAreaPage = () => {
       }, 1000)
 
       toast.dismiss('pdf-dl')
-      toast.success('Downloaded filled PDF')
+      toast.success(t('educatorArea.downloadedPdf'))
     } catch (error) {
       toast.dismiss('pdf-dl')
       console.error('Error downloading form:', error)
-      toast.error('Failed to download form')
+      toast.error(t('educatorArea.downloadError'))
     }
   }
 
@@ -164,7 +166,7 @@ const EducatorAreaPage = () => {
     const pdfUrl = schema.pdf_url || schema.pdfUrl
 
     try {
-      toast.loading('Generating signed document...', { id: 'pdf-gen' })
+      toast.loading(t('educatorArea.generatingSignedDoc'), { id: 'pdf-gen' })
 
       // Generate the filled PDF
       let pdfBytes: Uint8Array
@@ -206,38 +208,40 @@ const EducatorAreaPage = () => {
       if (error) throw error
 
       toast.dismiss('pdf-gen')
-      toast.success('Form submitted successfully!')
+      toast.success(t('educatorArea.formSubmitted'))
       setSelectedForm(null)
       fetchData()
     } catch (error: any) {
       toast.dismiss('pdf-gen')
       console.error('Error submitting form:', error)
-      const errorMessage = error?.message || error?.error_description || 'Failed to submit form'
+      const errorMessage = error?.message || error?.error_description || t('educatorArea.submitError')
       toast.error(errorMessage)
     }
   }
 
   const getStatusBadge = (status: FormStatus) => {
     const badges = {
-      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
-      received: { color: 'bg-blue-100 text-blue-800', icon: Inbox },
-      approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-      rejected: { color: 'bg-red-100 text-red-800', icon: XCircle },
+      pending: { color: 'bg-yellow-100 text-yellow-800', icon: Clock, label: t('educatorArea.statusPending') },
+      received: { color: 'bg-blue-100 text-blue-800', icon: Inbox, label: t('educatorArea.statusReceived') },
+      approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: t('educatorArea.statusApproved') },
+      rejected: { color: 'bg-red-100 text-red-800', icon: XCircle, label: t('educatorArea.statusRejected') },
     }
     const badge = badges[status]
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${badge.color}`}>
         <badge.icon className="w-3 h-3" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {badge.label}
       </span>
     )
   }
+
+  const locale = i18n.language?.startsWith('es') ? 'es-ES' : 'en-US'
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64" role="status" aria-live="polite">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
-        <span className="sr-only">Loading...</span>
+        <span className="sr-only">{t('common.loadingSr')}</span>
       </div>
     )
   }
@@ -254,13 +258,13 @@ const EducatorAreaPage = () => {
             <button
               onClick={() => setSelectedForm(null)}
               className="p-2 hover:bg-gray-100 rounded-lg"
-              aria-label="Close form"
+              aria-label={t('educatorArea.closeForm')}
             >
               <X className="w-5 h-5" />
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{selectedForm.form_name}</h1>
-              <p className="text-gray-600">Fill out the form below</p>
+              <p className="text-gray-600">{t('educatorArea.fillOutFormSubtitle')}</p>
             </div>
           </div>
           {schema.acroForm ? (
@@ -289,12 +293,12 @@ const EducatorAreaPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Educator Area</h1>
-        <p className="text-gray-600">Access forms and view your submissions</p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('educatorArea.title')}</h1>
+        <p className="text-gray-600">{t('educatorArea.subtitle')}</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b" role="tablist" aria-label="Educator Area">
+      <div className="flex gap-4 border-b" role="tablist" aria-label={t('educatorArea.tabsAriaLabel')}>
         <button
           id="educator-tab-forms"
           role="tab"
@@ -308,7 +312,7 @@ const EducatorAreaPage = () => {
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          Available Forms ({forms.length})
+          {t('educatorArea.availableTab', { count: forms.length })}
         </button>
         <button
           id="educator-tab-submissions"
@@ -323,7 +327,7 @@ const EducatorAreaPage = () => {
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          My Submissions ({submissions.length})
+          {t('educatorArea.submissionsTab', { count: submissions.length })}
         </button>
       </div>
 
@@ -333,8 +337,8 @@ const EducatorAreaPage = () => {
           {forms.length === 0 ? (
             <Card className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No forms available</p>
-              <p className="text-sm text-gray-400 mt-1">Forms will appear here when made available by an administrator</p>
+              <p className="text-gray-500">{t('educatorArea.emptyFormsTitle')}</p>
+              <p className="text-sm text-gray-400 mt-1">{t('educatorArea.emptyFormsBody')}</p>
             </Card>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -355,12 +359,12 @@ const EducatorAreaPage = () => {
                           <h3 className="font-semibold text-gray-900 truncate">{form.form_name}</h3>
                           {isViewOnly && (
                             <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 flex-shrink-0">
-                              View Only
+                              {t('educatorArea.viewOnlyBadge')}
                             </span>
                           )}
                         </div>
                         <p className="text-sm text-gray-500 mt-1">
-                          {isViewOnly ? 'Download or print only' : isPdfForm ? 'Fillable PDF Form' : 'Digital Form'}
+                          {isViewOnly ? t('educatorArea.viewOnlyDescription') : isPdfForm ? t('educatorArea.fillablePdfDescription') : t('educatorArea.digitalFormDescription')}
                         </p>
                         <div className="mt-3 flex gap-2 flex-wrap">
                           {isViewOnly && pdfUrl ? (
@@ -372,7 +376,7 @@ const EducatorAreaPage = () => {
                                 className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-1.5 font-medium"
                               >
                                 <ExternalLink className="w-3 h-3" />
-                                Open / Print
+                                {t('educatorArea.openPrintButton')}
                               </a>
                               <a
                                 href={pdfUrl}
@@ -380,7 +384,7 @@ const EducatorAreaPage = () => {
                                 className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1.5"
                               >
                                 <Download className="w-3 h-3" />
-                                Download
+                                {t('educatorArea.downloadButton')}
                               </a>
                             </>
                           ) : (
@@ -390,10 +394,10 @@ const EducatorAreaPage = () => {
                                   size="sm"
                                   onClick={() => setSelectedForm(form)}
                                 >
-                                  Fill Out
+                                  {t('educatorArea.fillFormButton')}
                                 </Button>
                               ) : (
-                                <span className="text-sm text-gray-400">Form not available</span>
+                                <span className="text-sm text-gray-400">{t('educatorArea.formNotAvailable')}</span>
                               )}
                               {pdfUrl && (
                                 <a
@@ -403,7 +407,7 @@ const EducatorAreaPage = () => {
                                   className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1"
                                 >
                                   <ExternalLink className="w-3 h-3" />
-                                  View
+                                  {t('educatorArea.viewButton')}
                                 </a>
                               )}
                             </>
@@ -425,8 +429,8 @@ const EducatorAreaPage = () => {
           {submissions.length === 0 ? (
             <Card className="text-center py-12">
               <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No submissions yet</p>
-              <p className="text-sm text-gray-400 mt-1">Your submitted forms will appear here</p>
+              <p className="text-gray-500">{t('educatorArea.emptySubmissionsTitle')}</p>
+              <p className="text-sm text-gray-400 mt-1">{t('educatorArea.emptySubmissionsBody')}</p>
             </Card>
           ) : (
             <div className="space-y-4">
@@ -439,10 +443,10 @@ const EducatorAreaPage = () => {
                       </div>
                       <div>
                         <h3 className="font-medium text-gray-900">
-                          {(submission.forms as Tables<'forms'>)?.form_name || 'Unknown Form'}
+                          {(submission.forms as Tables<'forms'>)?.form_name || t('educatorArea.unknownForm')}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          Submitted {new Date(submission.submitted_at).toLocaleDateString()}
+                          {t('educatorArea.submittedOn', { date: new Date(submission.submitted_at).toLocaleDateString(locale) })}
                         </p>
                       </div>
                     </div>
@@ -456,15 +460,15 @@ const EducatorAreaPage = () => {
                           className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-1"
                         >
                           <ExternalLink className="w-3 h-3" />
-                          View PDF
+                          {t('educatorArea.viewPdfButton')}
                         </a>
                       )}
                       {isAdmin && (
                         <button
                           onClick={() => handleDeleteSubmission(submission.id, submission.signed_pdf_url)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete submission"
-                          aria-label="Delete submission"
+                          title={t('educatorArea.deleteSubmissionTitle')}
+                          aria-label={t('educatorArea.deleteSubmissionAria')}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -474,7 +478,7 @@ const EducatorAreaPage = () => {
                   {submission.review_comment && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                       <p className="text-sm text-gray-600">
-                        <span className="font-medium">Review Comment:</span> {submission.review_comment}
+                        <span className="font-medium">{t('educatorArea.reviewComment')}</span> {submission.review_comment}
                       </p>
                     </div>
                   )}
