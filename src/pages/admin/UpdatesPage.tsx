@@ -201,8 +201,8 @@ const UpdatesPage = () => {
 
   const handleDismiss = async (activity: ActivityItem) => {
     // Check if this requires approval
-    const requiresApproval = 
-      (activity.type === 'form_submission' && (activity.status === 'pending' || activity.status === 'received')) ||
+    const requiresApproval =
+      (activity.type === 'form_submission' && activity.status === 'pending') ||
       (activity.type === 'inquiry' && activity.status === 'new')
 
     if (requiresApproval) {
@@ -390,8 +390,8 @@ const UpdatesPage = () => {
           ) : (
             filteredActivities.map((activity, index) => {
               const isDismissed = isActivityDismissed(activity)
-              const requiresApproval = 
-                (activity.type === 'form_submission' && (activity.status === 'pending' || activity.status === 'received')) ||
+              const requiresApproval =
+                (activity.type === 'form_submission' && activity.status === 'pending') ||
                 (activity.type === 'inquiry' && activity.status === 'new')
 
               return (
