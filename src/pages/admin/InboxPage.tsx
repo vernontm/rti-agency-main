@@ -93,7 +93,7 @@ const InboxPage = () => {
         supabase
           .from('form_submissions')
           .select(`*, forms (form_name), users:submitted_by (full_name, email)`)
-          .in('status', ['pending', 'received'])
+          .eq('status', 'pending')
           .order('submitted_at', { ascending: false }),
         supabase
           .from('contact_submissions')
@@ -241,16 +241,6 @@ const InboxPage = () => {
       fetchAllItems()
       setSelectedItem(null)
     } catch { toast.error('Failed to mark as received') }
-  }
-
-  const handleApproveForm = async (submissionId: string) => {
-    try {
-      const { error } = await supabase.from('form_submissions').update({ status: 'approved', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() }).eq('id', submissionId)
-      if (error) throw error
-      toast.success('Form approved')
-      fetchAllItems()
-      setSelectedItem(null)
-    } catch { toast.error('Failed to approve form') }
   }
 
   const handleRejectForm = async (submissionId: string) => {
@@ -543,12 +533,6 @@ const InboxPage = () => {
             {selectedItem.type === 'form' && selectedItem.status === 'pending' && (
               <>
                 <Button onClick={() => handleMarkFormReceived(selectedItem.id)}><MailOpen className="w-4 h-4 mr-2" />Received</Button>
-                <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
-              </>
-            )}
-            {selectedItem.type === 'form' && selectedItem.status === 'received' && (
-              <>
-                <Button onClick={() => handleApproveForm(selectedItem.id)}><CheckCircle className="w-4 h-4 mr-2" />Approve</Button>
                 <Button variant="outline" onClick={() => handleRejectForm(selectedItem.id)}><XCircle className="w-4 h-4 mr-2" />Reject</Button>
               </>
             )}

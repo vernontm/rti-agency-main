@@ -97,7 +97,7 @@ const Sidebar = () => {
       const { count: pendingForms, error: formsError } = await supabase
         .from('form_submissions')
         .select('*', { count: 'exact', head: true })
-        .in('status', ['pending', 'received'])
+        .eq('status', 'pending')
 
       const { count: pendingJobApps, error: jobsError } = await supabase
         .from('job_applications')
