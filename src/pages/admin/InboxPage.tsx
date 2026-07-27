@@ -244,8 +244,10 @@ const InboxPage = () => {
   }
 
   const handleRejectForm = async (submissionId: string) => {
+    const comment = window.prompt('Rejection reason (optional — the staff member will see this):')
+    if (comment === null) return
     try {
-      const { error } = await supabase.from('form_submissions').update({ status: 'rejected', reviewed_by: profile?.id, reviewed_at: new Date().toISOString() }).eq('id', submissionId)
+      const { error } = await supabase.from('form_submissions').update({ status: 'rejected', reviewed_by: profile?.id, reviewed_at: new Date().toISOString(), review_comment: comment.trim() || null }).eq('id', submissionId)
       if (error) throw error
       toast.success('Form rejected')
       fetchAllItems()
