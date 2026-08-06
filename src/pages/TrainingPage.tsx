@@ -8,6 +8,7 @@ import Button from '../components/ui/Button'
 import { Play, CheckCircle, Clock, Award, X, ChevronDown, ChevronRight, BookOpen, Lock, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import VideoQuiz from '../components/training/VideoQuiz'
+import { getYouTubeId, getVimeoId } from '../utils/videoUrl'
 // Using native HTML5 video element instead of ReactPlayer for better Supabase storage compatibility
 
 interface VideoProgress {
@@ -30,27 +31,6 @@ interface CourseModule {
   completedCount: number
   totalCount: number
   isExpanded: boolean
-}
-
-// Extract the YouTube video ID from any URL format. Returns null if not a YouTube URL.
-const getYouTubeId = (url: string | null | undefined): string | null => {
-  if (!url) return null
-  const patterns = [
-    /(?:youtube\.com\/watch\?v=|youtube\.com\/embed\/|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/v\/)([\w-]{11})/,
-    /youtube\.com\/.*[?&]v=([\w-]{11})/,
-  ]
-  for (const p of patterns) {
-    const m = url.match(p)
-    if (m && m[1]) return m[1]
-  }
-  return null
-}
-
-// Extract Vimeo ID
-const getVimeoId = (url: string | null | undefined): string | null => {
-  if (!url) return null
-  const m = url.match(/vimeo\.com\/(?:video\/)?(\d+)/)
-  return m ? m[1] : null
 }
 
 const TrainingPage = () => {

@@ -8,6 +8,7 @@ import Input from '../../components/ui/Input'
 import { Plus, Trash2, Edit2, Video, X, Save, Upload, Loader2, Play, HelpCircle, ArrowUp, ArrowDown, GripVertical, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import QuizEditor from '../../components/admin/QuizEditor'
+import { getYouTubeId, getVimeoId } from '../../utils/videoUrl'
 
 interface VideoCategory {
   id: string
@@ -356,9 +357,24 @@ const VideoManagementPage = () => {
         thumbnail_url: thumbnailUrl || formData.thumbnail_url,
       })
       toast.success('Video uploaded successfully!')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading video:', error)
-      toast.error('Failed to upload video')
+      const raw = error?.message || error?.error || ''
+      const status = error?.statusCode || error?.status
+      const isTooLarge =
+        status === 413 ||
+        /payload too large|exceeded the maximum allowed size|maxfilesize|body limit|file size/i.test(raw)
+      if (isTooLarge) {
+        const sizeMb = (file.size / 1024 / 1024).toFixed(1)
+        toast.error(
+          `Video is too large for direct upload (${sizeMb} MB). Paste the YouTube or Vimeo URL instead, or compress the file under 50 MB.`,
+          { duration: 8000 },
+        )
+      } else if (raw) {
+        toast.error(`Upload failed: ${raw}`, { duration: 6000 })
+      } else {
+        toast.error('Failed to upload video')
+      }
     } finally {
       setUploadingVideo(false)
       setUploadProgress(0)
@@ -833,13 +849,41 @@ const VideoManagementPage = () => {
               </button>
             </div>
             <div className="aspect-video bg-black rounded-lg overflow-hidden">
-              <video
-                src={playingVideo.video_url}
-                controls
-                autoPlay
-                playsInline
-                className="w-full h-full"
-              />
+              {(() => {
+                const ytId = getYouTubeId(playingVideo.video_url)
+                if (ytId) {
+                  return (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={playingVideo.title}
+                    />
+                  )
+                }
+                const vimeoId = getVimeoId(playingVideo.video_url)
+                if (vimeoId) {
+                  return (
+                    <iframe
+                      src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                      title={playingVideo.title}
+                    />
+                  )
+                }
+                return (
+                  <video
+                    src={playingVideo.video_url}
+                    controls
+                    autoPlay
+                    playsInline
+                    className="w-full h-full"
+                  />
+                )
+              })()}
             </div>
             {playingVideo.description && (
               <p className="text-gray-300 mt-4">{playingVideo.description}</p>
