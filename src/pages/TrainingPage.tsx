@@ -44,7 +44,7 @@ const TrainingPage = () => {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [showEngagementCheck, setShowEngagementCheck] = useState(false)
-  const [engagementInterval, setEngagementInterval] = useState(60) // Default 60 seconds
+  const [engagementInterval, setEngagementInterval] = useState(90) // Default 90 seconds
   const [allowSkip, setAllowSkip] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
   const [videoError, setVideoError] = useState<string | null>(null)
@@ -161,7 +161,7 @@ const TrainingPage = () => {
     const currentTime = state.playedSeconds
     setProgress(currentTime)
 
-    // Use engagement interval from settings (default 60 seconds, but can be set to 2 for testing)
+    // Use engagement interval from settings (default 90 seconds)
     if (engagementInterval > 0 && currentTime - lastCheckInRef.current >= engagementInterval) {
       lastCheckInRef.current = currentTime
       setShowEngagementCheck(true)
@@ -507,21 +507,13 @@ const TrainingPage = () => {
                   // TODO: swap for @vimeo/player when a Vimeo video is added.
                   if (vimeoId) {
                     return (
-                      <>
-                        <iframe
-                          src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
-                          className="w-full h-full"
-                          title={selectedVideo.title}
-                          allow="autoplay; fullscreen; picture-in-picture"
-                          allowFullScreen
-                        />
-                        <button
-                          onClick={handleVideoEnd}
-                          className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
-                        >
-                          ✓ {t('training.markAsWatched')}
-                        </button>
-                      </>
+                      <iframe
+                        src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
+                        className="w-full h-full"
+                        title={selectedVideo.title}
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                      />
                     )
                   }
 
@@ -587,10 +579,20 @@ const TrainingPage = () => {
                       }}
                       onTimeUpdate={(e) => {
                         const video = e.target as HTMLVideoElement
-                        if (video.currentTime > maxSeekTimeRef.current) {
-                          maxSeekTimeRef.current = video.currentTime
+                        const currentTime = video.currentTime
+                        // Enforce skip prevention here as well. The order of the timeupdate
+                        // and seeking events is not guaranteed, so a forward scrub can reach
+                        // this handler first. If we advanced the high-water mark below, the
+                        // onSeeking clamp would be defeated and the viewer could skip ahead.
+                        if (!allowSkip && currentTime > maxSeekTimeRef.current + 2) {
+                          video.currentTime = maxSeekTimeRef.current
+                          handleSkipBlocked()
+                          return
                         }
-                        handleProgress({ playedSeconds: video.currentTime })
+                        if (currentTime > maxSeekTimeRef.current) {
+                          maxSeekTimeRef.current = currentTime
+                        }
+                        handleProgress({ playedSeconds: currentTime })
                       }}
                       onSeeking={(e) => {
                         if (allowSkip) return
