@@ -337,7 +337,6 @@
     "rewatch": "Rewatch",
     "locked": "Locked",
     "markComplete": "Mark as Complete",
-    "markAsWatched": "Mark as Watched",
     "completed": "Completed",
     "backToVideos": "Back to Videos",
     "loadError": "Failed to load training videos",

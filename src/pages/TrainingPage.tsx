@@ -8,8 +8,10 @@ import Button from '../components/ui/Button'
 import { Play, CheckCircle, Clock, Award, X, ChevronDown, ChevronRight, BookOpen, Lock, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import VideoQuiz from '../components/training/VideoQuiz'
-import { getYouTubeId, getVimeoId } from '../utils/videoUrl'
-// Using native HTML5 video element instead of ReactPlayer for better Supabase storage compatibility
+import ReactPlayer from 'react-player'
+
+// Tolerance (in seconds) for forward-seek detection between playback ticks
+const SEEK_THRESHOLD = 1.5
 
 interface VideoProgress {
   user_id: string
@@ -43,12 +45,15 @@ const TrainingPage = () => {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [showEngagementCheck, setShowEngagementCheck] = useState(false)
-  const [engagementInterval, setEngagementInterval] = useState(60) // Default 60 seconds
+  const [engagementInterval, setEngagementInterval] = useState(90) // Default 90 seconds
+  const [allowSkip, setAllowSkip] = useState(false) // Default: skipping disallowed
   const [showQuiz, setShowQuiz] = useState(false)
   const [videoError, setVideoError] = useState<string | null>(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const playerRef = useRef<HTMLVideoElement>(null)
   const lastCheckInRef = useRef(0)
+  // Furthest legitimately-watched position, used to block forward seeking
+  const maxPlayedRef = useRef(0)
 
   useEffect(() => {
     fetchVideos()
@@ -59,6 +64,7 @@ const TrainingPage = () => {
   useEffect(() => {
     if (selectedVideo) {
       lastCheckInRef.current = 0
+      maxPlayedRef.current = 0
       setShowEngagementCheck(false)
       setPlaying(true) // Auto-play when video is selected
       setVideoError(null)
@@ -71,12 +77,18 @@ const TrainingPage = () => {
       const { data, error } = await supabase
         .from('video_settings')
         .select('*')
-        .eq('key', 'engagement_check_interval')
-        .single()
+        .in('key', ['engagement_check_interval', 'allow_skip'])
 
-      if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-      if (data?.value?.seconds) {
-        setEngagementInterval(data.value.seconds)
+      if (error) throw error
+
+      const interval = data?.find((s) => s.key === 'engagement_check_interval')
+      if (interval?.value?.seconds) {
+        setEngagementInterval(interval.value.seconds)
+      }
+
+      const skip = data?.find((s) => s.key === 'allow_skip')
+      if (typeof skip?.value?.enabled === 'boolean') {
+        setAllowSkip(skip.value.enabled)
       }
     } catch (error) {
       console.error('Error fetching video settings:', error)
@@ -148,11 +160,35 @@ const TrainingPage = () => {
     }
   }
 
-  const handleProgress = useCallback((state: { playedSeconds: number }) => {
-    const currentTime = state.playedSeconds
+  // Skip-prevention guard: when skipping is disallowed, snap playback back to the
+  // furthest legitimately-watched point if the user tries to jump forward.
+  // Returns true if a forward seek was blocked. Backward seeks are always allowed.
+  const enforceNoForwardSeek = useCallback((currentTime: number): boolean => {
+    // Don't interfere while the engagement overlay is showing (video is paused there)
+    if (allowSkip || showEngagementCheck) return false
+
+    if (currentTime > maxPlayedRef.current + SEEK_THRESHOLD) {
+      const player = playerRef.current
+      if (player) {
+        try {
+          player.currentTime = maxPlayedRef.current
+        } catch { /* ignore seek errors */ }
+      }
+      return true
+    }
+
+    // Normal near-real-time playback (or a backward seek): advance the watermark
+    maxPlayedRef.current = Math.max(maxPlayedRef.current, currentTime)
+    return false
+  }, [allowSkip, showEngagementCheck])
+
+  const handleProgress = useCallback((currentTime: number) => {
+    // Block forward seeks before doing anything else
+    if (enforceNoForwardSeek(currentTime)) return
+
     setProgress(currentTime)
 
-    // Use engagement interval from settings (default 60 seconds, but can be set to 2 for testing)
+    // Use engagement interval from settings (default 90 seconds)
     if (engagementInterval > 0 && currentTime - lastCheckInRef.current >= engagementInterval) {
       lastCheckInRef.current = currentTime
       setShowEngagementCheck(true)
@@ -166,7 +202,7 @@ const TrainingPage = () => {
         document.exitFullscreen().catch(() => { /* ignore fullscreen exit errors */ })
       }
     }
-  }, [engagementInterval])
+  }, [engagementInterval, enforceNoForwardSeek])
 
   const handleEngagementResponse = async () => {
     if (!selectedVideo || !profile) return
@@ -460,71 +496,15 @@ const TrainingPage = () => {
               />
             ) : (
               <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                {(() => {
-                  const ytId = getYouTubeId(selectedVideo.video_url)
-                  const vimeoId = getVimeoId(selectedVideo.video_url)
-                  const isEmbed = !!(ytId || vimeoId)
-
-                  if (!selectedVideo.video_url) {
-                    return (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
-                        <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
-                        <h3 className="text-lg font-semibold mb-2">{t('training.noVideoFileTitle')}</h3>
-                        <p className="text-sm text-gray-300 max-w-md">
-                          {t('training.noVideoFileBody')}
-                        </p>
-                      </div>
-                    )
-                  }
-
-                  // YouTube embed
-                  if (ytId) {
-                    return (
-                      <>
-                        <iframe
-                          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
-                          className="w-full h-full"
-                          title={selectedVideo.title}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                        <button
-                          onClick={handleVideoEnd}
-                          className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
-                        >
-                          ✓ {t('training.markAsWatched')}
-                        </button>
-                      </>
-                    )
-                  }
-
-                  // Vimeo embed
-                  if (vimeoId) {
-                    return (
-                      <>
-                        <iframe
-                          src={`https://player.vimeo.com/video/${vimeoId}?autoplay=1`}
-                          className="w-full h-full"
-                          title={selectedVideo.title}
-                          allow="autoplay; fullscreen; picture-in-picture"
-                          allowFullScreen
-                        />
-                        <button
-                          onClick={handleVideoEnd}
-                          className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
-                        >
-                          ✓ {t('training.markAsWatched')}
-                        </button>
-                      </>
-                    )
-                  }
-
-                  // Direct video file fallthrough — handled by the legacy branches below
-                  return null
-                })()}
-
-                {/* Direct file player branches (only render when NOT a YouTube/Vimeo URL) */}
-                {selectedVideo.video_url && !getYouTubeId(selectedVideo.video_url) && !getVimeoId(selectedVideo.video_url) && (videoError ? (
+                {!selectedVideo.video_url ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
+                    <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
+                    <h3 className="text-lg font-semibold mb-2">{t('training.noVideoFileTitle')}</h3>
+                    <p className="text-sm text-gray-300 max-w-md">
+                      {t('training.noVideoFileBody')}
+                    </p>
+                  </div>
+                ) : videoError ? (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-6 text-center">
                     <AlertCircle className="w-12 h-12 text-red-400 mb-3" />
                     <h3 className="text-lg font-semibold mb-2">{t('training.cannotLoadVideoTitle')}</h3>
@@ -537,7 +517,7 @@ const TrainingPage = () => {
                         onClick={() => {
                           setVideoError(null)
                           setVideoLoading(true)
-                          playerRef.current?.load()
+                          playerRef.current?.load?.()
                         }}
                       >
                         {t('training.retry')}
@@ -554,35 +534,24 @@ const TrainingPage = () => {
                   </div>
                 ) : (
                   <>
-                    <video
+                    {/* Single player handles YouTube, Vimeo, and direct file URLs.
+                        A real onEnded event auto-completes the video for every source. */}
+                    <ReactPlayer
                       ref={playerRef}
                       src={selectedVideo.video_url}
-                      className="w-full h-full"
+                      playing={playing}
                       controls
-                      autoPlay
                       playsInline
-                      onLoadStart={() => { setVideoLoading(true); setVideoError(null) }}
-                      onCanPlay={() => setVideoLoading(false)}
-                      onError={(e) => {
+                      width="100%"
+                      height="100%"
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                      onReady={() => setVideoLoading(false)}
+                      onError={() => {
                         setVideoLoading(false)
-                        const v = e.currentTarget
-                        const err = v.error
-                        let msg = t('training.videoErrorGeneric')
-                        if (err) {
-                          switch (err.code) {
-                            case 1: msg = t('training.videoErrorAborted'); break
-                            case 2: msg = t('training.videoErrorNetwork'); break
-                            case 3: msg = t('training.videoErrorCorrupt'); break
-                            case 4: msg = t('training.videoErrorFormat'); break
-                          }
-                        }
-                        console.error('Video error:', err, 'URL:', selectedVideo.video_url)
-                        setVideoError(msg)
+                        setVideoError(t('training.videoErrorGeneric'))
                       }}
-                      onTimeUpdate={(e) => {
-                        const video = e.target as HTMLVideoElement
-                        handleProgress({ playedSeconds: video.currentTime })
-                      }}
+                      onTimeUpdate={(e) => handleProgress(e.currentTarget.currentTime)}
+                      onSeeked={(e) => enforceNoForwardSeek(e.currentTarget.currentTime)}
                       onEnded={handleVideoEnd}
                       onPlay={() => setPlaying(true)}
                       onPause={() => setPlaying(false)}
@@ -593,7 +562,7 @@ const TrainingPage = () => {
                       </div>
                     )}
                   </>
-                ))}
+                )}
 
                 {showEngagementCheck && (
                   <div className="absolute inset-0 bg-black/80 flex items-center justify-center">
