@@ -346,6 +346,7 @@
     "stillWatchingBody": "Haz clic abajo para continuar tu capacitación",
     "stillWatchingButton": "¡Sí, estoy aquí!",
     "stillWatchingThanks": "¡Gracias por mantenerte atento!",
+    "skipDisabled": "No se permite adelantar este video.",
     "quizPassedToast": "¡Aprobaste el examen con {{score}}%! ¡Buen trabajo!",
     "closeVideoPlayer": "Cerrar reproductor",
     "noVideoFileTitle": "No hay archivo de video",

@@ -8,6 +8,7 @@ import Button from '../components/ui/Button'
 import { Play, CheckCircle, Clock, Award, X, ChevronDown, ChevronRight, BookOpen, Lock, AlertCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import VideoQuiz from '../components/training/VideoQuiz'
+import YouTubePlayer, { type YouTubePlayerHandle } from '../components/training/YouTubePlayer'
 import { getYouTubeId, getVimeoId } from '../utils/videoUrl'
 // Using native HTML5 video element instead of ReactPlayer for better Supabase storage compatibility
 
@@ -44,11 +45,14 @@ const TrainingPage = () => {
   const [progress, setProgress] = useState(0)
   const [showEngagementCheck, setShowEngagementCheck] = useState(false)
   const [engagementInterval, setEngagementInterval] = useState(60) // Default 60 seconds
+  const [allowSkip, setAllowSkip] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
   const [videoError, setVideoError] = useState<string | null>(null)
   const [videoLoading, setVideoLoading] = useState(false)
   const playerRef = useRef<HTMLVideoElement>(null)
+  const youtubePlayerRef = useRef<YouTubePlayerHandle>(null)
   const lastCheckInRef = useRef(0)
+  const maxSeekTimeRef = useRef(0)
 
   useEffect(() => {
     fetchVideos()
@@ -59,6 +63,7 @@ const TrainingPage = () => {
   useEffect(() => {
     if (selectedVideo) {
       lastCheckInRef.current = 0
+      maxSeekTimeRef.current = 0
       setShowEngagementCheck(false)
       setPlaying(true) // Auto-play when video is selected
       setVideoError(null)
@@ -71,12 +76,16 @@ const TrainingPage = () => {
       const { data, error } = await supabase
         .from('video_settings')
         .select('*')
-        .eq('key', 'engagement_check_interval')
-        .single()
+        .in('key', ['engagement_check_interval', 'allow_skip'])
 
-      if (error && error.code !== 'PGRST116') throw error // PGRST116 = no rows
-      if (data?.value?.seconds) {
-        setEngagementInterval(data.value.seconds)
+      if (error) throw error
+      for (const row of (data as { key: string; value: { seconds?: number; enabled?: boolean } }[] | null) || []) {
+        if (row.key === 'engagement_check_interval' && typeof row.value?.seconds === 'number') {
+          setEngagementInterval(row.value.seconds)
+        }
+        if (row.key === 'allow_skip' && typeof row.value?.enabled === 'boolean') {
+          setAllowSkip(row.value.enabled)
+        }
       }
     } catch (error) {
       console.error('Error fetching video settings:', error)
@@ -157,16 +166,19 @@ const TrainingPage = () => {
       lastCheckInRef.current = currentTime
       setShowEngagementCheck(true)
       setPlaying(false)
-      // Pause the actual video element
-      if (playerRef.current) {
-        playerRef.current.pause()
-      }
+      // Pause whichever player is active
+      playerRef.current?.pause()
+      youtubePlayerRef.current?.pause()
       // Exit fullscreen if active so user can see the prompt
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => { /* ignore fullscreen exit errors */ })
       }
     }
   }, [engagementInterval])
+
+  const handleSkipBlocked = useCallback(() => {
+    toast.error(t('training.skipDisabled'), { id: 'skip-disabled', duration: 3000 })
+  }, [t])
 
   const handleEngagementResponse = async () => {
     if (!selectedVideo || !profile) return
@@ -182,10 +194,9 @@ const TrainingPage = () => {
 
       setShowEngagementCheck(false)
       setPlaying(true)
-      // Resume the actual video element
-      if (playerRef.current) {
-        playerRef.current.play()
-      }
+      // Resume whichever player is active
+      playerRef.current?.play()
+      youtubePlayerRef.current?.play()
       toast.success(t('training.stillWatchingThanks'))
     } catch (error) {
       console.error('Error recording check-in:', error)
@@ -477,28 +488,23 @@ const TrainingPage = () => {
                     )
                   }
 
-                  // YouTube embed
+                  // YouTube embed via IFrame Player API (real end-detection, skip prevention, engagement timing)
                   if (ytId) {
                     return (
-                      <>
-                        <iframe
-                          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
-                          className="w-full h-full"
-                          title={selectedVideo.title}
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                          allowFullScreen
-                        />
-                        <button
-                          onClick={handleVideoEnd}
-                          className="absolute bottom-4 right-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-lg shadow-lg transition-colors"
-                        >
-                          ✓ {t('training.markAsWatched')}
-                        </button>
-                      </>
+                      <YouTubePlayer
+                        ref={youtubePlayerRef}
+                        videoId={ytId}
+                        title={selectedVideo.title}
+                        onEnded={handleVideoEnd}
+                        onPlaybackTime={(t) => handleProgress({ playedSeconds: t })}
+                        allowSkip={allowSkip}
+                        onSkipBlocked={handleSkipBlocked}
+                      />
                     )
                   }
 
-                  // Vimeo embed
+                  // Vimeo embed — no player-API integration yet, so engagement/skip aren't enforced.
+                  // TODO: swap for @vimeo/player when a Vimeo video is added.
                   if (vimeoId) {
                     return (
                       <>
@@ -581,7 +587,18 @@ const TrainingPage = () => {
                       }}
                       onTimeUpdate={(e) => {
                         const video = e.target as HTMLVideoElement
+                        if (video.currentTime > maxSeekTimeRef.current) {
+                          maxSeekTimeRef.current = video.currentTime
+                        }
                         handleProgress({ playedSeconds: video.currentTime })
+                      }}
+                      onSeeking={(e) => {
+                        if (allowSkip) return
+                        const video = e.target as HTMLVideoElement
+                        if (video.currentTime > maxSeekTimeRef.current + 2) {
+                          video.currentTime = maxSeekTimeRef.current
+                          handleSkipBlocked()
+                        }
                       }}
                       onEnded={handleVideoEnd}
                       onPlay={() => setPlaying(true)}

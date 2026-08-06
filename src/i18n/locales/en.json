@@ -346,6 +346,7 @@
     "stillWatchingBody": "Click below to continue your training",
     "stillWatchingButton": "Yes, I'm here!",
     "stillWatchingThanks": "Thanks for staying engaged!",
+    "skipDisabled": "Skipping ahead is disabled for this video.",
     "quizPassedToast": "Quiz passed with {{score}}%! Great job!",
     "closeVideoPlayer": "Close video player",
     "noVideoFileTitle": "No video file",
