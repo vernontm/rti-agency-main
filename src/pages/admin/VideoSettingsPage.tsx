@@ -23,7 +23,7 @@ const VideoSettingsPage = () => {
   const [categories, setCategories] = useState<VideoCategory[]>([])
   const [settings, setSettings] = useState<VideoSettings>({
     require_completion: { enabled: true },
-    engagement_check_interval: { seconds: 300 },
+    engagement_check_interval: { seconds: 90 },
     allow_skip: { enabled: false },
   })
   const [loading, setLoading] = useState(true)
@@ -300,7 +300,7 @@ const VideoSettingsPage = () => {
                 onChange={(e) =>
                   setSettings({
                     ...settings,
-                    engagement_check_interval: { seconds: parseInt(e.target.value) || 300 },
+                    engagement_check_interval: { seconds: parseInt(e.target.value) || 90 },
                   })
                 }
                 min={60}
