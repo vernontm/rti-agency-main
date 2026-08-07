@@ -38,6 +38,7 @@ const VideoManagementPage = () => {
     category: '',
     is_required: false,
     is_published: true,
+    engagement_check_seconds: '' as string,
   })
   const [playingVideo, setPlayingVideo] = useState<Tables<'videos'> | null>(null)
   const [editingQuizVideo, setEditingQuizVideo] = useState<Tables<'videos'> | null>(null)
@@ -92,12 +93,14 @@ const VideoManagementPage = () => {
       category: '',
       is_required: false,
       is_published: true,
+      engagement_check_seconds: '',
     })
     setShowModal(true)
   }
 
   const openEditModal = (video: Tables<'videos'>) => {
     setEditingVideo(video)
+    const perVideoInterval = (video as unknown as { engagement_check_seconds?: number | null }).engagement_check_seconds
     setFormData({
       title: video.title,
       description: video.description || '',
@@ -107,6 +110,7 @@ const VideoManagementPage = () => {
       category: video.category || '',
       is_required: video.is_required,
       is_published: video.is_published ?? true,
+      engagement_check_seconds: perVideoInterval != null ? String(perVideoInterval) : '',
     })
     setShowModal(true)
   }
@@ -120,16 +124,22 @@ const VideoManagementPage = () => {
 
     setSaving(true)
     try {
+      const { engagement_check_seconds: engStr, ...rest } = formData
+      const parsedEng = engStr.trim() === '' ? null : Math.max(1, parseInt(engStr, 10))
+      const payload = {
+        ...rest,
+        engagement_check_seconds: Number.isFinite(parsedEng as number) ? parsedEng : null,
+      }
       if (editingVideo) {
         const { error } = await supabase
           .from('videos')
-          .update(formData)
+          .update(payload)
           .eq('id', editingVideo.id)
         if (error) throw error
         toast.success('Video updated!')
       } else {
         const { error } = await supabase.from('videos').insert({
-          ...formData,
+          ...payload,
           uploaded_by: profile?.id,
         })
         if (error) throw error
@@ -814,6 +824,28 @@ const VideoManagementPage = () => {
                   <span className="block text-xs text-gray-500">Uncheck to hide while you're still uploading.</span>
                 </span>
               </label>
+
+              <div>
+                <label htmlFor="engagement-check-seconds" className="block text-sm font-medium text-gray-700 mb-1">
+                  Engagement check interval (optional)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="engagement-check-seconds"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={formData.engagement_check_seconds}
+                    onChange={(e) => setFormData({ ...formData, engagement_check_seconds: e.target.value })}
+                    placeholder="e.g. 300"
+                    className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-500">seconds</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  How often the "Are you still watching?" prompt fires for this video. Leave blank to use the global setting in Video Settings. Use bigger numbers for longer videos (e.g. 300 = every 5 minutes).
+                </p>
+              </div>
 
               <div className="flex gap-3 pt-4">
                 <Button

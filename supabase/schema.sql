@@ -70,6 +70,7 @@ CREATE TABLE videos (
     duration_seconds INTEGER NOT NULL DEFAULT 0,
     thumbnail_url TEXT,
     uploaded_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    engagement_check_seconds INTEGER, -- NULL = use global video_settings interval
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -109,6 +110,7 @@ CREATE TABLE quiz_attempts (
     total_questions INTEGER NOT NULL,
     correct_count INTEGER NOT NULL,
     answers JSONB,
+    taker_name TEXT,
     taken_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

@@ -44,7 +44,8 @@ const TrainingPage = () => {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [showEngagementCheck, setShowEngagementCheck] = useState(false)
-  const [engagementInterval, setEngagementInterval] = useState(60) // Default 60 seconds
+  const [engagementInterval, setEngagementInterval] = useState(60) // Effective interval (per-video override falls back to this global default)
+  const globalEngagementIntervalRef = useRef(60)
   const [allowSkip, setAllowSkip] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
   const [videoError, setVideoError] = useState<string | null>(null)
@@ -68,6 +69,9 @@ const TrainingPage = () => {
       setPlaying(true) // Auto-play when video is selected
       setVideoError(null)
       setVideoLoading(true)
+      // Prefer this video's own engagement interval if set; otherwise fall back to the global default
+      const perVideo = (selectedVideo as unknown as { engagement_check_seconds?: number | null }).engagement_check_seconds
+      setEngagementInterval(perVideo && perVideo > 0 ? perVideo : globalEngagementIntervalRef.current)
     }
   }, [selectedVideo])
 
@@ -81,6 +85,7 @@ const TrainingPage = () => {
       if (error) throw error
       for (const row of (data as { key: string; value: { seconds?: number; enabled?: boolean } }[] | null) || []) {
         if (row.key === 'engagement_check_interval' && typeof row.value?.seconds === 'number') {
+          globalEngagementIntervalRef.current = row.value.seconds
           setEngagementInterval(row.value.seconds)
         }
         if (row.key === 'allow_skip' && typeof row.value?.enabled === 'boolean') {

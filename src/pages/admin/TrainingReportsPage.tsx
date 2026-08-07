@@ -4,7 +4,7 @@ import { useAuthStore } from '../../stores/authStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { GraduationCap, CheckCircle, XCircle, Download, Search, Filter, RefreshCw } from 'lucide-react'
+import { GraduationCap, CheckCircle, XCircle, Download, Search, Filter, RefreshCw, RotateCcw } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface QuizAttempt {
@@ -16,6 +16,7 @@ interface QuizAttempt {
   passing_score: number
   total_questions: number
   correct_count: number
+  taker_name: string | null
   taken_at: string
   users?: { full_name: string | null; email: string | null } | null
   videos?: { title: string | null; category: string | null } | null
@@ -78,12 +79,32 @@ const TrainingReportsPage = () => {
       if (from && new Date(a.taken_at).getTime() < from) return false
       if (to && new Date(a.taken_at).getTime() > to) return false
       if (s) {
-        const hay = `${a.users?.full_name || ''} ${a.users?.email || ''} ${a.videos?.title || ''}`.toLowerCase()
+        const hay = `${a.taker_name || ''} ${a.users?.full_name || ''} ${a.users?.email || ''} ${a.videos?.title || ''}`.toLowerCase()
         if (!hay.includes(s)) return false
       }
       return true
     })
   }, [attempts, search, videoFilter, passFilter, dateFrom, dateTo])
+
+  const resetForNextTaker = async (attempt: QuizAttempt) => {
+    const takerLabel = attempt.taker_name || attempt.users?.full_name || 'this account'
+    const videoLabel = attempt.videos?.title || 'this video'
+    if (!confirm(
+      `Reset "${videoLabel}" on the account for "${takerLabel}"?\n\nThe next person on this account will see the video as new. Historical attempts stay in this report.`,
+    )) return
+    try {
+      const { error } = await supabase
+        .from('video_progress')
+        .delete()
+        .eq('user_id', attempt.user_id)
+        .eq('video_id', attempt.video_id)
+      if (error) throw error
+      toast.success('Reset. Next person can start this video fresh.')
+    } catch (err) {
+      console.error('Failed to reset video progress:', err)
+      toast.error('Failed to reset. Check the console.')
+    }
+  }
 
   const stats = useMemo(() => {
     const total = filtered.length
@@ -99,8 +120,9 @@ const TrainingReportsPage = () => {
       return
     }
     const rows = [
-      ['Staff', 'Email', 'Video', 'Category', 'Score %', 'Passing %', 'Correct / Total', 'Result', 'Taken At'],
+      ['Taker', 'Account', 'Email', 'Video', 'Category', 'Score %', 'Passing %', 'Correct / Total', 'Result', 'Taken At'],
       ...filtered.map((a) => [
+        a.taker_name || a.users?.full_name || '',
         a.users?.full_name || '',
         a.users?.email || '',
         a.videos?.title || '',
@@ -252,23 +274,24 @@ const TrainingReportsPage = () => {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600 border-b border-gray-200">
               <tr>
-                <th className="text-left px-4 py-3 font-medium">Staff</th>
+                <th className="text-left px-4 py-3 font-medium">Taker</th>
                 <th className="text-left px-4 py-3 font-medium">Video</th>
                 <th className="text-left px-4 py-3 font-medium">Score</th>
                 <th className="text-left px-4 py-3 font-medium">Result</th>
                 <th className="text-left px-4 py-3 font-medium">Taken</th>
+                <th className="text-right px-4 py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
                     Loading…
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
                     <GraduationCap className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                     {attempts.length === 0
                       ? 'No quiz attempts yet. Staff results will appear here after they submit a quiz.'
@@ -276,42 +299,60 @@ const TrainingReportsPage = () => {
                   </td>
                 </tr>
               ) : (
-                filtered.map((a) => (
-                  <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{a.users?.full_name || '—'}</div>
-                      <div className="text-xs text-gray-500">{a.users?.email || ''}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-gray-900">{a.videos?.title || '—'}</div>
-                      {a.videos?.category && (
-                        <div className="text-xs text-gray-500">{a.videos.category}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-gray-900">{a.score}%</div>
-                      <div className="text-xs text-gray-500">
-                        {a.correct_count} / {a.total_questions} correct · needed {a.passing_score}%
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {a.passed ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3" />
-                          Passed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          <XCircle className="w-3 h-3" />
-                          Failed
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
-                      {new Date(a.taken_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))
+                filtered.map((a) => {
+                  const displayName = a.taker_name?.trim() || a.users?.full_name || '—'
+                  const showAccountHint = !!a.taker_name && a.users?.full_name && a.taker_name !== a.users.full_name
+                  return (
+                    <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{displayName}</div>
+                        <div className="text-xs text-gray-500">
+                          {showAccountHint
+                            ? <>on account <span className="font-medium">{a.users?.full_name}</span> · {a.users?.email}</>
+                            : (a.users?.email || '')}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{a.videos?.title || '—'}</div>
+                        {a.videos?.category && (
+                          <div className="text-xs text-gray-500">{a.videos.category}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-gray-900">{a.score}%</div>
+                        <div className="text-xs text-gray-500">
+                          {a.correct_count} / {a.total_questions} correct · needed {a.passing_score}%
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {a.passed ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3" />
+                            Passed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <XCircle className="w-3 h-3" />
+                            Failed
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                        {new Date(a.taken_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => resetForNextTaker(a)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+                          title="Reset this video on this account so the next person can start fresh"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Reset for next taker
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

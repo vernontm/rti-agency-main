@@ -30,6 +30,11 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
   const [score, setScore] = useState(0)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [takerName, setTakerName] = useState(profile?.full_name || '')
+
+  useEffect(() => {
+    setTakerName(profile?.full_name || '')
+  }, [profile?.full_name])
 
   useEffect(() => {
     fetchQuiz()
@@ -107,6 +112,10 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
   }
 
   const handleSubmit = async () => {
+    if (!takerName.trim()) {
+      toast.error('Please enter your name before submitting')
+      return
+    }
     if (Object.keys(selectedAnswers).length < questions.length) {
       toast.error('Please answer all questions before submitting')
       return
@@ -152,6 +161,7 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
           total_questions: questions.length,
           correct_count: correctCount,
           answers: selectedAnswers,
+          taker_name: takerName.trim(),
         })
       }
 
@@ -321,9 +331,27 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
           </span>
         </div>
 
+        {/* Taker name — prefilled with account name; change it if a different person is taking the quiz on this account */}
+        <div className="mb-6">
+          <label htmlFor="quiz-taker-name" className="block text-sm font-medium text-gray-700 mb-1">
+            Who's taking this quiz?
+          </label>
+          <input
+            id="quiz-taker-name"
+            type="text"
+            value={takerName}
+            onChange={(e) => setTakerName(e.target.value)}
+            placeholder="Full name"
+            className="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            This is how the attempt shows up in Training Reports for the admin.
+          </p>
+        </div>
+
         {/* Progress bar */}
         <div className="h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
-          <div 
+          <div
             className="h-full bg-blue-500 rounded-full transition-all duration-300"
             style={{ width: `${((currentQuestion + 1) / questions.length) * 100}%` }}
           />
