@@ -196,6 +196,7 @@ const Sidebar = () => {
         { to: '/admin/job-positions', icon: Briefcase, label: t('sidebar.items.jobPositions'), tooltip: t('sidebar.tooltips.jobPositions'), roles: ['admin'] },
         { to: '/admin/file-manager', icon: FileText, label: t('sidebar.items.fileManager'), tooltip: t('sidebar.tooltips.fileManager'), roles: ['admin'] },
         { to: '/admin/archives', icon: Archive, label: t('sidebar.items.archives'), tooltip: t('sidebar.tooltips.archives'), roles: ['admin'] },
+        { to: '/admin/training-reports', icon: GraduationCap, label: t('sidebar.items.trainingReports'), tooltip: t('sidebar.tooltips.trainingReports'), roles: ['admin'] },
         ...(profile?.email === 'rvernonmedia@gmail.com'
           ? [{ to: '/admin/error-logs', icon: AlertTriangle, label: t('sidebar.items.errorLogs'), tooltip: t('sidebar.tooltips.errorLogs'), roles: ['admin'] }]
           : []),

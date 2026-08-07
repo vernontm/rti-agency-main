@@ -26,6 +26,7 @@ import InboxPage from './pages/admin/InboxPage'
 import AdvisoriesManagementPage from './pages/admin/AdvisoriesManagementPage'
 import ArchivesPage from './pages/admin/ArchivesPage'
 import ErrorLogsPage from './pages/admin/ErrorLogsPage'
+import TrainingReportsPage from './pages/admin/TrainingReportsPage'
 import FormsManagementPage from './pages/admin/FormsManagementPage'
 import EducatorAreaPage from './pages/EducatorAreaPage'
 import AdvisoriesPage from './pages/AdvisoriesPage'
@@ -95,6 +96,7 @@ function App() {
           <Route path="/admin/file-manager" element={<AdvisoriesManagementPage />} />
           <Route path="/admin/archives" element={<ArchivesPage />} />
           <Route path="/admin/error-logs" element={<ErrorLogsPage />} />
+          <Route path="/admin/training-reports" element={<TrainingReportsPage />} />
         </Route>
 
         {/* Catch all */}

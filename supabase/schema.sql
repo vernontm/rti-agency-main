@@ -98,6 +98,20 @@ CREATE TABLE video_progress (
     UNIQUE(user_id, video_id)
 );
 
+-- Quiz attempts (one row per submission, keeps full history)
+CREATE TABLE quiz_attempts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    video_id UUID NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL CHECK (score >= 0 AND score <= 100),
+    passed BOOLEAN NOT NULL,
+    passing_score INTEGER NOT NULL,
+    total_questions INTEGER NOT NULL,
+    correct_count INTEGER NOT NULL,
+    answers JSONB,
+    taken_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Engagement check-ins
 CREATE TABLE engagement_checkins (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

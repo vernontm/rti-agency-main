@@ -117,8 +117,21 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
     setScore(finalScore)
     const passed = finalScore >= passingScore
 
+    // Build the correct_count for storage
+    let correctCount = 0
+    questions.forEach((q, index) => {
+      const userAnswer = selectedAnswers[index]
+      if (q.type === 'text') {
+        const correctText = (q.correctAnswer as string).toLowerCase().trim()
+        const userText = (userAnswer as string || '').toLowerCase().trim()
+        if (userText === correctText) correctCount++
+      } else if (userAnswer === q.correctAnswer) {
+        correctCount++
+      }
+    })
+
     try {
-      // Update video progress with quiz results
+      // Update video progress with latest quiz results (kept for quick "did they pass?" lookups)
       await supabase
         .from('video_progress')
         .update({
@@ -127,6 +140,20 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
         })
         .eq('user_id', profile?.id)
         .eq('video_id', videoId)
+
+      // Log this attempt as a full historical row
+      if (profile?.id) {
+        await supabase.from('quiz_attempts').insert({
+          user_id: profile.id,
+          video_id: videoId,
+          score: finalScore,
+          passed,
+          passing_score: passingScore,
+          total_questions: questions.length,
+          correct_count: correctCount,
+          answers: selectedAnswers,
+        })
+      }
 
       setShowResults(true)
       
