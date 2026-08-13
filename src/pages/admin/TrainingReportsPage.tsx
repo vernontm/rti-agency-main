@@ -4,7 +4,7 @@ import { useAuthStore } from '../../stores/authStore'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import { GraduationCap, CheckCircle, XCircle, Download, Search, Filter, RefreshCw, RotateCcw } from 'lucide-react'
+import { GraduationCap, CheckCircle, XCircle, Download, Search, Filter, RefreshCw, RotateCcw, Printer, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface QuizAttempt {
@@ -18,8 +18,17 @@ interface QuizAttempt {
   correct_count: number
   taker_name: string | null
   taken_at: string
+  answers: Record<string, number | string> | null
   users?: { full_name: string | null; email: string | null } | null
   videos?: { title: string | null; category: string | null } | null
+}
+
+interface QuizQuestion {
+  id: string
+  question: string
+  type: 'multiple_choice' | 'text'
+  options: string[]
+  correctAnswer: number | string
 }
 
 type PassFilter = 'all' | 'passed' | 'failed'
@@ -34,6 +43,9 @@ const TrainingReportsPage = () => {
   const [passFilter, setPassFilter] = useState<PassFilter>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [detailAttempt, setDetailAttempt] = useState<QuizAttempt | null>(null)
+  const [detailQuestions, setDetailQuestions] = useState<QuizQuestion[] | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   useEffect(() => {
     if (!isAdmin) return
@@ -85,6 +97,33 @@ const TrainingReportsPage = () => {
       return true
     })
   }, [attempts, search, videoFilter, passFilter, dateFrom, dateTo])
+
+  const openDetail = async (attempt: QuizAttempt) => {
+    setDetailAttempt(attempt)
+    setDetailQuestions(null)
+    setDetailLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('video_quizzes')
+        .select('questions')
+        .eq('video_id', attempt.video_id)
+        .single()
+      if (error) throw error
+      const qs = (data?.questions as QuizQuestion[] | null) || []
+      setDetailQuestions(qs)
+    } catch (err) {
+      console.error('Failed to load quiz questions:', err)
+      toast.error('Failed to load the quiz questions for this attempt.')
+      setDetailQuestions([])
+    } finally {
+      setDetailLoading(false)
+    }
+  }
+
+  const closeDetail = () => {
+    setDetailAttempt(null)
+    setDetailQuestions(null)
+  }
 
   const resetForNextTaker = async (attempt: QuizAttempt) => {
     const takerLabel = attempt.taker_name || attempt.users?.full_name || 'this account'
@@ -303,7 +342,12 @@ const TrainingReportsPage = () => {
                   const displayName = a.taker_name?.trim() || a.users?.full_name || '—'
                   const showAccountHint = !!a.taker_name && a.users?.full_name && a.taker_name !== a.users.full_name
                   return (
-                    <tr key={a.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr
+                      key={a.id}
+                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      onClick={() => openDetail(a)}
+                      title="Click to see the questions and answers"
+                    >
                       <td className="px-4 py-3">
                         <div className="font-medium text-gray-900">{displayName}</div>
                         <div className="text-xs text-gray-500">
@@ -340,7 +384,15 @@ const TrainingReportsPage = () => {
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                         {new Date(a.taken_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => openDetail(a)}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded mr-1"
+                          title="View and print this attempt"
+                        >
+                          <Printer className="w-3 h-3" />
+                          View / Print
+                        </button>
                         <button
                           onClick={() => resetForNextTaker(a)}
                           className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
@@ -358,6 +410,164 @@ const TrainingReportsPage = () => {
           </table>
         </div>
       </Card>
+
+      {/* Print-only styles: when printing, hide everything except the detail sheet */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden !important; }
+          #print-quiz-detail, #print-quiz-detail * { visibility: visible !important; }
+          #print-quiz-detail {
+            position: absolute !important;
+            inset: 0 !important;
+            margin: 0 !important;
+            padding: 24px !important;
+            background: white !important;
+            color: black !important;
+            box-shadow: none !important;
+            max-height: none !important;
+            overflow: visible !important;
+          }
+          #print-quiz-detail .no-print { display: none !important; }
+        }
+      `}</style>
+
+      {/* Attempt detail modal — questions, correct answers, taker's answers, print button */}
+      {detailAttempt && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 flex items-start md:items-center justify-center p-4 overflow-y-auto"
+          onKeyDown={(e) => e.key === 'Escape' && closeDetail()}
+          onClick={closeDetail}
+        >
+          <div
+            id="print-quiz-detail"
+            role="dialog"
+            aria-modal="true"
+            className="relative bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="no-print sticky top-0 z-10 flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
+              <div className="text-sm font-medium text-gray-700">Quiz attempt details</div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => window.print()}>
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
+                <button
+                  onClick={closeDetail}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Header block */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {detailAttempt.videos?.title || 'Quiz attempt'}
+                </h2>
+                {detailAttempt.videos?.category && (
+                  <p className="text-sm text-gray-500 mt-1">{detailAttempt.videos.category}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border border-gray-200 rounded-lg p-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Taker</p>
+                  <p className="font-medium text-gray-900 mt-0.5">
+                    {detailAttempt.taker_name?.trim() || detailAttempt.users?.full_name || '—'}
+                  </p>
+                  {(detailAttempt.taker_name && detailAttempt.users?.full_name && detailAttempt.taker_name !== detailAttempt.users.full_name) && (
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      on account {detailAttempt.users.full_name}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Score</p>
+                  <p className="font-medium text-gray-900 mt-0.5">
+                    {detailAttempt.score}% ({detailAttempt.correct_count} / {detailAttempt.total_questions})
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">needed {detailAttempt.passing_score}%</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Result</p>
+                  <p className={`font-medium mt-0.5 ${detailAttempt.passed ? 'text-green-700' : 'text-red-700'}`}>
+                    {detailAttempt.passed ? 'Passed' : 'Failed'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Taken</p>
+                  <p className="font-medium text-gray-900 mt-0.5">
+                    {new Date(detailAttempt.taken_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Questions */}
+              {detailLoading ? (
+                <div className="text-center py-8 text-gray-500">Loading questions…</div>
+              ) : detailQuestions === null || detailQuestions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 border border-dashed border-gray-300 rounded-lg">
+                  Questions are unavailable for this attempt. The quiz may have been deleted or changed.
+                </div>
+              ) : (
+                <ol className="space-y-3">
+                  {detailQuestions.map((q, index) => {
+                    const userAns = detailAttempt.answers?.[String(index)]
+                    const isText = q.type === 'text'
+                    const isCorrect = isText
+                      ? String(userAns ?? '').toLowerCase().trim() === String(q.correctAnswer).toLowerCase().trim()
+                      : userAns === q.correctAnswer
+                    const userDisplay = isText
+                      ? (String(userAns ?? '').trim() || '(no answer)')
+                      : (typeof userAns === 'number' && q.options[userAns] !== undefined ? q.options[userAns] : '(no answer)')
+                    const correctDisplay = isText
+                      ? String(q.correctAnswer)
+                      : (q.options[q.correctAnswer as number] ?? String(q.correctAnswer))
+                    return (
+                      <li
+                        key={q.id || index}
+                        className={`border rounded-lg p-4 ${isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {isCorrect ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Question {index + 1}</p>
+                            <p className="font-medium text-gray-900">{q.question}</p>
+                            <p className="text-sm mt-2">
+                              <span className="text-gray-500">Their answer: </span>
+                              <span className={isCorrect ? 'text-green-800' : 'text-red-800'}>{userDisplay}</span>
+                            </p>
+                            {!isCorrect && (
+                              <p className="text-sm">
+                                <span className="text-gray-500">Correct answer: </span>
+                                <span className="text-green-800">{correctDisplay}</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ol>
+              )}
+
+              {/* Footer for the printed page */}
+              <div className="pt-4 border-t border-gray-200 text-xs text-gray-500 flex items-center justify-between">
+                <span>RTI Agency — Training Report</span>
+                <span>Printed {new Date().toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
