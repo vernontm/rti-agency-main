@@ -411,21 +411,43 @@ const TrainingReportsPage = () => {
         </div>
       </Card>
 
-      {/* Print-only styles: when printing, break the modal out of fixed positioning so it flows across pages */}
+      {/* Print-only styles: when printing, collapse the rest of the app so the modal flows from the top of the page */}
       <style>{`
         @media print {
           @page { margin: 12mm; }
+
           html, body {
             height: auto !important;
             overflow: visible !important;
             background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
-          body * { visibility: hidden !important; }
-          #print-quiz-detail-overlay,
-          #print-quiz-detail,
-          #print-quiz-detail * { visibility: visible !important; }
 
-          /* Overlay: drop fixed positioning + scroll clipping so children can flow */
+          /* Hide every element that is not the overlay, not inside the overlay, and not an ancestor of it.
+             Using display:none (not visibility:hidden) so hidden siblings don't reserve blank space. */
+          body *:not(#print-quiz-detail-overlay):not(#print-quiz-detail-overlay *):not(:has(#print-quiz-detail-overlay)) {
+            display: none !important;
+          }
+
+          /* Ancestors of the overlay: strip layout constraints so the overlay flows from the very top */
+          body *:has(#print-quiz-detail-overlay) {
+            display: block !important;
+            width: auto !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: white !important;
+            color: black !important;
+            position: static !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            transform: none !important;
+          }
+
+          /* Overlay itself: normal block flow, no fixed positioning */
           #print-quiz-detail-overlay {
             position: static !important;
             inset: auto !important;
@@ -436,6 +458,7 @@ const TrainingReportsPage = () => {
             overflow: visible !important;
             background: white !important;
             padding: 0 !important;
+            margin: 0 !important;
             z-index: auto !important;
           }
 
