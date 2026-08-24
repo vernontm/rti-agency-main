@@ -6,7 +6,7 @@ import Button from '../../components/ui/Button'
 import {
   FileText, Plus, Search, Eye, EyeOff, Trash2, X, Star,
   ClipboardList, CheckCircle, XCircle, Clock, ArrowLeft,
-  Download, FolderOpen, Send, Filter, Printer,
+  Download, FolderOpen, Send, Filter, Printer, Pencil, PencilRuler,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PDFFormBuilder from '../../components/pdf/PDFFormBuilder'
@@ -76,6 +76,7 @@ const FormsManagementPage = () => {
   const [submissionFilter, setSubmissionFilter] = useState<SubmissionFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [showBuilder, setShowBuilder] = useState(false)
+  const [editingForm, setEditingForm] = useState<Form | null>(null)
   const [selectedForm, setSelectedForm] = useState<Form | null>(null)
   const [selectedSubmission, setSelectedSubmission] = useState<FormSubmission | null>(null)
   const [showManagerSign, setShowManagerSign] = useState(false)
@@ -116,6 +117,33 @@ const FormsManagementPage = () => {
     acroForm?: boolean
   ) => {
     try {
+      if (editingForm) {
+        // Update path: keep the same forms row so submissions stay attached.
+        // Preserve form_type (its UNIQUE constraint) and any keys we don't overwrite.
+        const prevSchema = editingForm.fields_schema || {}
+        const { error } = await supabase.from('forms').update({
+          form_name: formName,
+          fields_schema: {
+            ...prevSchema,
+            type: 'pdf',
+            pdfUrl,
+            fields,
+            pdfRotation: pdfRotation || 0,
+            acroForm: acroForm ?? prevSchema.acroForm ?? false,
+          },
+        }).eq('id', editingForm.id)
+
+        if (error) throw error
+
+        toast.success('Form updated. Existing submissions are still attached.')
+        setShowBuilder(false)
+        setEditingForm(null)
+        setSelectedForm(null)
+        fetchData()
+        return
+      }
+
+      // Create path
       // form_type has a UNIQUE constraint — use a slug of the form name + timestamp
       const formType = `pdf_${formName.toLowerCase().replace(/\s+/g, '_')}_${Date.now()}`
 
@@ -141,6 +169,35 @@ const FormsManagementPage = () => {
       console.error('Error saving form:', error)
       toast.error('Failed to save form')
     }
+  }
+
+  const renameForm = async (form: Form) => {
+    const nextName = window.prompt('Rename form:', form.form_name)
+    if (nextName === null) return
+    const trimmed = nextName.trim()
+    if (!trimmed) {
+      toast.error('Name cannot be empty')
+      return
+    }
+    if (trimmed === form.form_name) return
+    try {
+      const { error } = await supabase
+        .from('forms')
+        .update({ form_name: trimmed })
+        .eq('id', form.id)
+      if (error) throw error
+      setForms(prev => prev.map(f => f.id === form.id ? { ...f, form_name: trimmed } : f))
+      if (selectedForm?.id === form.id) setSelectedForm({ ...form, form_name: trimmed })
+      toast.success('Form renamed')
+    } catch (error) {
+      console.error('Error renaming form:', error)
+      toast.error('Failed to rename form')
+    }
+  }
+
+  const openEditFields = (form: Form) => {
+    setEditingForm(form)
+    setShowBuilder(true)
   }
 
   const toggleVisibility = async (form: Form) => {
@@ -336,20 +393,33 @@ const FormsManagementPage = () => {
 
   // --- Builder view ---
   if (showBuilder) {
+    const editingSchema = editingForm?.fields_schema
+    const editingPdfUrl = editingSchema?.pdfUrl || editingSchema?.pdf_url
     return (
       <div className="-m-6 h-screen flex flex-col bg-white">
         <div className="flex items-center gap-4 px-6 py-4 border-b">
           <button
-            onClick={() => setShowBuilder(false)}
+            onClick={() => {
+              setShowBuilder(false)
+              setEditingForm(null)
+            }}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             aria-label="Back to forms"
           >
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <h1 className="text-xl font-semibold text-gray-900">Upload New Form</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            {editingForm ? `Edit fields: ${editingForm.form_name}` : 'Upload New Form'}
+          </h1>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
-          <PDFFormBuilder onSave={handleSaveForm} />
+          <PDFFormBuilder
+            onSave={handleSaveForm}
+            initialPdfUrl={editingPdfUrl}
+            initialFields={editingSchema?.fields}
+            initialFormName={editingForm?.form_name}
+            initialRotation={editingSchema?.pdfRotation}
+          />
         </div>
       </div>
     )
@@ -519,6 +589,22 @@ const FormsManagementPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => renameForm(selectedForm)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+              title="Rename this form"
+            >
+              <Pencil className="w-4 h-4" />
+              Rename
+            </button>
+            <button
+              onClick={() => openEditFields(selectedForm)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+              title="Reopen the field editor for this form. Submissions stay attached."
+            >
+              <PencilRuler className="w-4 h-4" />
+              Edit fields
+            </button>
             <button
               onClick={() => toggleViewOnly(selectedForm)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
