@@ -411,29 +411,64 @@ const TrainingReportsPage = () => {
         </div>
       </Card>
 
-      {/* Print-only styles: when printing, hide everything except the detail sheet */}
+      {/* Print-only styles: when printing, break the modal out of fixed positioning so it flows across pages */}
       <style>{`
         @media print {
+          @page { margin: 12mm; }
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            background: white !important;
+          }
           body * { visibility: hidden !important; }
-          #print-quiz-detail, #print-quiz-detail * { visibility: visible !important; }
+          #print-quiz-detail-overlay,
+          #print-quiz-detail,
+          #print-quiz-detail * { visibility: visible !important; }
+
+          /* Overlay: drop fixed positioning + scroll clipping so children can flow */
+          #print-quiz-detail-overlay {
+            position: static !important;
+            inset: auto !important;
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: white !important;
+            padding: 0 !important;
+            z-index: auto !important;
+          }
+
+          /* Modal: normal block flow so browser paginates naturally */
           #print-quiz-detail {
-            position: absolute !important;
-            inset: 0 !important;
-            margin: 0 !important;
-            padding: 24px !important;
+            position: static !important;
+            display: block !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
             background: white !important;
             color: black !important;
             box-shadow: none !important;
-            max-height: none !important;
-            overflow: visible !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
           }
+
           #print-quiz-detail .no-print { display: none !important; }
+
+          /* Keep each question card intact across page breaks when possible */
+          #print-quiz-detail ol > li {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+          }
         }
       `}</style>
 
       {/* Attempt detail modal — questions, correct answers, taker's answers, print button */}
       {detailAttempt && (
         <div
+          id="print-quiz-detail-overlay"
           className="fixed inset-0 z-50 bg-black/50 flex items-start md:items-center justify-center p-4 overflow-y-auto"
           onKeyDown={(e) => e.key === 'Escape' && closeDetail()}
           onClick={closeDetail}
