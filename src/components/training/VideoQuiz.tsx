@@ -140,19 +140,10 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
     })
 
     try {
-      // Update video progress with latest quiz results (kept for quick "did they pass?" lookups)
-      await supabase
-        .from('video_progress')
-        .update({
-          quiz_score: finalScore,
-          quiz_passed: passed,
-        })
-        .eq('user_id', profile?.id)
-        .eq('video_id', videoId)
-
-      // Log this attempt as a full historical row
+      // Log this attempt as a full historical row FIRST so we never lose the record.
+      // Supabase does not throw on RLS/constraint errors, so check .error explicitly.
       if (profile?.id) {
-        await supabase.from('quiz_attempts').insert({
+        const { error: attemptError } = await supabase.from('quiz_attempts').insert({
           user_id: profile.id,
           video_id: videoId,
           score: finalScore,
@@ -163,7 +154,19 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
           answers: selectedAnswers,
           taker_name: takerName.trim(),
         })
+        if (attemptError) throw attemptError
       }
+
+      // Update video progress with latest quiz results (kept for quick "did they pass?" lookups)
+      const { error: progressError } = await supabase
+        .from('video_progress')
+        .update({
+          quiz_score: finalScore,
+          quiz_passed: passed,
+        })
+        .eq('user_id', profile?.id)
+        .eq('video_id', videoId)
+      if (progressError) throw progressError
 
       setShowResults(true)
       
