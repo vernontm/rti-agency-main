@@ -121,10 +121,56 @@ export async function generateFilledPDF(
       } else if (field.type === 'textarea') {
         const text = String(value)
         const fontSize = 10
-        const lines = text.split('\n')
-        let currentY = y + height - fontSize - 2
+        const maxWidth = Math.max(width - 4, 1) // 2pt padding each side, guard against 0-width fields
 
-        for (const line of lines) {
+        // Break a single "word" that is wider than the field into fragments that fit.
+        // Ensures a runaway URL or a long unbreakable token still stays inside the box.
+        const breakLongWord = (word: string): string[] => {
+          const fragments: string[] = []
+          let buffer = ''
+          for (const ch of word) {
+            const trial = buffer + ch
+            if (helvetica.widthOfTextAtSize(trial, fontSize) <= maxWidth || buffer === '') {
+              buffer = trial
+            } else {
+              fragments.push(buffer)
+              buffer = ch
+            }
+          }
+          if (buffer) fragments.push(buffer)
+          return fragments
+        }
+
+        // Split on explicit newlines first, then soft-wrap each paragraph to the field width.
+        const wrapped: string[] = []
+        for (const paragraph of text.split('\n')) {
+          if (paragraph === '') {
+            wrapped.push('')
+            continue
+          }
+          let line = ''
+          for (const rawWord of paragraph.split(/\s+/)) {
+            if (rawWord === '') continue
+            const candidate = line ? `${line} ${rawWord}` : rawWord
+            if (helvetica.widthOfTextAtSize(candidate, fontSize) <= maxWidth) {
+              line = candidate
+              continue
+            }
+            if (line) wrapped.push(line)
+            // The word alone might still overflow; break it if it does.
+            if (helvetica.widthOfTextAtSize(rawWord, fontSize) > maxWidth) {
+              const pieces = breakLongWord(rawWord)
+              for (let i = 0; i < pieces.length - 1; i++) wrapped.push(pieces[i])
+              line = pieces[pieces.length - 1] ?? ''
+            } else {
+              line = rawWord
+            }
+          }
+          if (line) wrapped.push(line)
+        }
+
+        let currentY = y + height - fontSize - 2
+        for (const line of wrapped) {
           if (currentY < y) break
           page.drawText(line, {
             x: x + 2,
