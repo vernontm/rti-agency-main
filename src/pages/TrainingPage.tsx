@@ -97,10 +97,15 @@ const TrainingPage = () => {
     }
   }
 
-  // Helper function to check if video is completed - defined before useEffect that uses it
+  // Helper function to check if video is completed - defined before useEffect that uses it.
+  // A required video is only "done" when the user has watched it AND passed its quiz.
+  // Optional videos just need to be watched. This controls both the completion badge and
+  // whether the NEXT video in a module unlocks.
   const isVideoCompleted = useCallback((video: VideoWithProgress) => {
     const userProgress = video.video_progress?.find(p => p.user_id === profile?.id)
-    return userProgress?.completed || false
+    if (!userProgress?.completed) return false
+    if (video.is_required) return !!userProgress.quiz_passed
+    return true
   }, [profile])
 
   // Helper function to get quiz score for a video
@@ -166,6 +171,12 @@ const TrainingPage = () => {
     const currentTime = state.playedSeconds
     setProgress(currentTime)
 
+    // Track the furthest point actually watched. YouTube path calls this via onPlaybackTime,
+    // direct <video> path also calls this via onTimeUpdate, so both platforms contribute.
+    if (currentTime > maxSeekTimeRef.current) {
+      maxSeekTimeRef.current = currentTime
+    }
+
     // Use engagement interval from settings (default 60 seconds, but can be set to 2 for testing)
     if (engagementInterval > 0 && currentTime - lastCheckInRef.current >= engagementInterval) {
       lastCheckInRef.current = currentTime
@@ -210,6 +221,21 @@ const TrainingPage = () => {
 
   const handleVideoEnd = async () => {
     if (!selectedVideo || !profile) return
+
+    // Guard against premature "ended" events. Require the user to have actually reached
+    // at least 90% of the video's duration before we accept the completion. This blocks
+    // YouTube iframe quirks (ENDED firing without real playback), as well as users who
+    // bypass the player via dev tools or network tricks. Only applies when we know the
+    // real duration; a 0-duration record (manual YouTube paste without duration lookup)
+    // falls through to the previous trust-the-event behavior.
+    const duration = selectedVideo.duration_seconds || 0
+    if (duration > 0) {
+      const requiredSeconds = duration * 0.9
+      if (maxSeekTimeRef.current < requiredSeconds) {
+        toast.error(t('training.notWatchedEnough'), { id: 'not-watched', duration: 5000 })
+        return
+      }
+    }
 
     try {
       // First update progress to mark video as watched

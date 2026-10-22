@@ -386,7 +386,7 @@ const VideoQuiz = ({ videoId, videoTitle, onComplete }: VideoQuizProps) => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                    <div className={`w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center ${
                       selectedAnswers[currentQuestion] === index
                         ? 'border-blue-500 bg-blue-500'
                         : 'border-gray-300'
