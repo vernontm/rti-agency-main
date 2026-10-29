@@ -349,6 +349,7 @@
     "stillWatchingButton": "Yes, I'm here!",
     "stillWatchingThanks": "Thanks for staying engaged!",
     "skipDisabled": "Skipping ahead is disabled for this video.",
+    "notWatchedEnough": "You need to watch most of the video before taking the quiz. Keep watching and we will unlock it.",
     "quizPassedToast": "Quiz passed with {{score}}%! Great job!",
     "closeVideoPlayer": "Close video player",
     "noVideoFileTitle": "No video file",

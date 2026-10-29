@@ -349,6 +349,7 @@
     "stillWatchingButton": "¡Sí, estoy aquí!",
     "stillWatchingThanks": "¡Gracias por mantenerte atento!",
     "skipDisabled": "No se permite adelantar este video.",
+    "notWatchedEnough": "Debes ver la mayor parte del video antes de tomar el cuestionario. Sigue viendo y lo desbloquearemos.",
     "quizPassedToast": "¡Aprobaste el examen con {{score}}%! ¡Buen trabajo!",
     "closeVideoPlayer": "Cerrar reproductor",
     "noVideoFileTitle": "No hay archivo de video",
