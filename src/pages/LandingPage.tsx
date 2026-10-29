@@ -254,18 +254,6 @@ const LandingPage = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-[#002840]/40 via-transparent to-transparent" />
           </div>
 
-          {/* Holiday Closure Notice */}
-          <div className="absolute top-[120px] left-0 right-0 z-20 px-6">
-            <div className="max-w-[1280px] mx-auto">
-              <div className="bg-[#fff4e5] border border-[#fe9226]/50 rounded-lg px-5 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex items-start gap-3">
-                <Clock className="w-5 h-5 text-[#fe9226] mt-0.5 shrink-0" aria-hidden="true" />
-                <p className="text-sm text-[#003d5c] leading-relaxed">
-                  <strong>Holiday Notice:</strong> Our office will be closed on Monday, September 7, 2026, in observance of Labor Day. Regular business hours will resume on Tuesday, September 8, 2026. If you have a medical emergency, please call 9-1-1.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Hero Content */}
           <div className="relative z-10 w-full max-w-[1280px] mx-auto px-6">
             <div className="max-w-[680px]">
