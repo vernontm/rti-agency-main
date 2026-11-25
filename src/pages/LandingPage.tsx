@@ -2,6 +2,13 @@ import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, ChevronDown, Menu, X, Phone, MapPin, Mail, Clock, Heart, Shield, Users, Home, ArrowRight } from 'lucide-react'
 import SitePopup from '../components/SitePopup'
+import { supabase } from '../lib/supabase'
+
+interface SiteNotice {
+  id: string
+  title: string | null
+  message: string
+}
 
 const SUPABASE_STORAGE = 'https://gtfwrcapxsksxkvulull.supabase.co/storage/v1/object/public/website-images'
 const RTI_LOGO = `${SUPABASE_STORAGE}/rti-logo.png`
@@ -118,6 +125,30 @@ const LandingPage = () => {
   const [currentILSSlide, setCurrentILSSlide] = useState(0)
   const [openFAQ, setOpenFAQ] = useState<number | null>(null)
   const [scrolled, setScrolled] = useState(false)
+  const [activeNotice, setActiveNotice] = useState<SiteNotice | null>(null)
+
+  // Fetch the current site notice on mount. RLS filters out inactive/expired rows automatically,
+  // so we just take the most recently created match. Anonymous public access is allowed.
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('site_notices')
+      .select('id, title, message')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) {
+          console.warn('Failed to load site notice:', error)
+          return
+        }
+        if (data) setActiveNotice(data as SiteNotice)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const heroInterval = setInterval(() => {
@@ -254,14 +285,17 @@ const LandingPage = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-[#002840]/40 via-transparent to-transparent" />
           </div>
 
-          {/* Holiday Closure Notice. Auto-hides at the configured cutoff so it doesn't need manual removal. */}
-          {new Date() < new Date('2026-11-30T17:00:00Z') && (
+          {/* Site notice banner. Content is managed by admins at /admin/site-notices.
+              RLS on the table already filters by active + start/end window, so no date check here. */}
+          {activeNotice && (
             <div className="absolute top-[120px] left-0 right-0 z-20 px-6">
               <div className="max-w-[1280px] mx-auto">
                 <div className="bg-[#fff4e5] border border-[#fe9226]/50 rounded-lg px-5 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex items-start gap-3">
                   <Clock className="w-5 h-5 text-[#fe9226] mt-0.5 shrink-0" aria-hidden="true" />
-                  <p className="text-sm text-[#003d5c] leading-relaxed">
-                    <strong>Happy Thanksgiving!</strong> Our office will be closed Thursday and Friday for the holiday and will reopen on Monday. We hope everyone has a wonderful and safe Thanksgiving!
+                  <p className="text-sm text-[#003d5c] leading-relaxed whitespace-pre-wrap">
+                    {activeNotice.title && <strong>{activeNotice.title}</strong>}
+                    {activeNotice.title && ' '}
+                    {activeNotice.message}
                   </p>
                 </div>
               </div>

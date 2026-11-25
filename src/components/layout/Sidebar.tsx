@@ -210,6 +210,7 @@ const Sidebar = () => {
         { to: '/admin/forms', icon: ClipboardList, label: t('sidebar.items.formsManager'), tooltip: t('sidebar.tooltips.formsManager'), roles: ['admin'] },
         { to: '/admin/videos', icon: Film, label: t('sidebar.items.videoManager'), tooltip: t('sidebar.tooltips.videoManager'), roles: ['admin'] },
         { to: '/admin/video-settings', icon: Sliders, label: t('sidebar.items.videoSettings'), tooltip: t('sidebar.tooltips.videoSettings'), roles: ['admin'] },
+        { to: '/admin/site-notices', icon: Bell, label: t('sidebar.items.siteNotices'), tooltip: t('sidebar.tooltips.siteNotices'), roles: ['admin'] },
       ]
     },
     {
