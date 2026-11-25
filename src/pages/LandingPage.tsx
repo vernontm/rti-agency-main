@@ -254,6 +254,20 @@ const LandingPage = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-[#002840]/40 via-transparent to-transparent" />
           </div>
 
+          {/* Holiday Closure Notice. Auto-hides at the configured cutoff so it doesn't need manual removal. */}
+          {new Date() < new Date('2026-11-30T17:00:00Z') && (
+            <div className="absolute top-[120px] left-0 right-0 z-20 px-6">
+              <div className="max-w-[1280px] mx-auto">
+                <div className="bg-[#fff4e5] border border-[#fe9226]/50 rounded-lg px-5 py-3 shadow-[0_4px_20px_rgba(0,0,0,0.25)] flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-[#fe9226] mt-0.5 shrink-0" aria-hidden="true" />
+                  <p className="text-sm text-[#003d5c] leading-relaxed">
+                    <strong>Happy Thanksgiving!</strong> Our office will be closed Thursday and Friday for the holiday and will reopen on Monday. We hope everyone has a wonderful and safe Thanksgiving!
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Hero Content */}
           <div className="relative z-10 w-full max-w-[1280px] mx-auto px-6">
             <div className="max-w-[680px]">
