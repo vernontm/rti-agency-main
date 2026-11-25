@@ -133,6 +133,7 @@
       "formsManager": "Gestor de formularios",
       "videoManager": "Gestor de videos",
       "videoSettings": "Ajustes de video",
+      "siteNotices": "Avisos del sitio",
       "settings": "Configuración"
     },
     "tooltips": {
@@ -152,6 +153,7 @@
       "formsManager": "Subir y administrar formularios",
       "videoManager": "Administrar videos de capacitación",
       "videoSettings": "Categorías y configuración de video",
+      "siteNotices": "Avisos de feriados en la página principal",
       "settings": "Configuración de la app"
     },
     "roles": {

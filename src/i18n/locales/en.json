@@ -133,6 +133,7 @@
       "formsManager": "Forms Manager",
       "videoManager": "Video Manager",
       "videoSettings": "Video Settings",
+      "siteNotices": "Site Notices",
       "settings": "Settings"
     },
     "tooltips": {
@@ -152,6 +153,7 @@
       "formsManager": "Upload & manage fillable forms",
       "videoManager": "Manage training videos",
       "videoSettings": "Video categories & config",
+      "siteNotices": "Holiday banners on the landing page",
       "settings": "App configuration"
     },
     "roles": {

@@ -125,6 +125,19 @@ CREATE TABLE engagement_checkins (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Site notices (holiday banners and alerts on the public landing page, editable by admins)
+CREATE TABLE site_notices (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    title TEXT,
+    message TEXT NOT NULL,
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Announcements
 CREATE TABLE announcements (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
